@@ -9,17 +9,13 @@ import { ThreadsTab } from './tabs/ThreadsTab';
 
 interface DetailTabsProps {
   result: AnalysisResult;
-  analysisType: 'AI' | 'Local';
-  onAnalyzeThreads: () => void;
-  isAnalyzingThreads: boolean;
-  threadError: string | null;
 }
 
 const tabs = [
   'System', 'Memory', 'Threads', 'Applications', 'Processes', 'Environment'
 ];
 
-export const DetailTabs: React.FC<DetailTabsProps> = ({ result, analysisType, onAnalyzeThreads, isAnalyzingThreads, threadError }) => {
+export const DetailTabs: React.FC<DetailTabsProps> = ({ result }) => {
   const [activeTab, setActiveTab] = useState(tabs[0]);
 
   const renderContent = () => {
@@ -38,10 +34,6 @@ export const DetailTabs: React.FC<DetailTabsProps> = ({ result, analysisType, on
           return <ThreadsTab 
                     data={result.threadAnalysis} 
                     detailedReport={result.detailedThreadReport}
-                    analysisType={analysisType}
-                    onAnalyzeThreads={onAnalyzeThreads}
-                    isAnalyzingThreads={isAnalyzingThreads}
-                    threadError={threadError}
                  />;
       default:
         return null;

@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { User, AnalysisResult } from '../types';
 import { DashboardIcon, AnalyzerIcon, UsersIcon, LogoutIcon } from '../assets/icons';
@@ -38,10 +39,12 @@ const NavItem: React.FC<{
 export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
     const [activeView, setActiveView] = useState<View>('dashboard');
     const [loadedResult, setLoadedResult] = useState<AnalysisResult | null>(null);
+    const [analysisContext, setAnalysisContext] = useState<AnalysisResult | null>(null);
 
     const handleViewChange = (view: View) => {
         if (view !== 'analyzer') {
             setLoadedResult(null);
+            setAnalysisContext(null);
         }
         setActiveView(view);
     };
@@ -50,6 +53,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
         const session = sessionService.getSession(sessionId);
         if (session) {
             setLoadedResult(session.result);
+            setAnalysisContext(session.result);
             setActiveView('analyzer');
         }
     };
@@ -59,7 +63,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
             case 'dashboard':
                 return <DashboardView user={user} setActiveView={handleViewChange} onLoadSession={handleLoadSession} />;
             case 'analyzer':
-                return <AnalyzerView initialResult={loadedResult} onClearInitialResult={() => setLoadedResult(null)} />;
+                return <AnalyzerView 
+                            initialResult={loadedResult} 
+                            onClearInitialResult={() => setLoadedResult(null)}
+                            onAnalysisComplete={setAnalysisContext}
+                        />;
             case 'users':
                 return <UserManagementView />;
             default:
@@ -104,7 +112,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
                     {renderView()}
                 </main>
             </div>
-            <AIAssistant />
+            <AIAssistant context={analysisContext} />
         </div>
     );
 };

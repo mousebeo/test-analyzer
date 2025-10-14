@@ -1,7 +1,9 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { getAssistantChat } from '../services/geminiService';
 import { AssistantIcon, CloseIcon, SendIcon } from '../assets/icons';
+import { AnalysisResult } from '../types';
 
 interface Message {
   id: number;
@@ -9,7 +11,11 @@ interface Message {
   sender: 'user' | 'ai';
 }
 
-export const AIAssistant: React.FC = () => {
+interface AIAssistantProps {
+    context: AnalysisResult | null;
+}
+
+export const AIAssistant: React.FC<AIAssistantProps> = ({ context }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
         { id: 1, text: "Hi! I'm Sys, your AI assistant. How can I help you analyze your system reports today?", sender: 'ai' }
@@ -31,13 +37,36 @@ export const AIAssistant: React.FC = () => {
         setMessages(prev => [...prev, userMessage]);
         setInput('');
         setIsLoading(true);
+
+        let prompt = input;
+        if (context) {
+            // Create a summarized version of the context to avoid large token counts
+            const summarizedContext = {
+                analysisType: context.analysisType,
+                role: context.role,
+                summary: context.summary,
+                keyMetrics: context.keyMetrics,
+                ...(context.aiSummary && {
+                    healthHighlights: context.aiSummary.healthHighlights,
+                    areasOfConcern: context.aiSummary.areasOfConcern,
+                })
+            };
+            prompt = `
+CONTEXT: The user is currently viewing the following system analysis report. Use this data to answer their question.
+\`\`\`json
+${JSON.stringify(summarizedContext, null, 2)}
+\`\`\`
+
+USER QUESTION: ${input}
+            `;
+        }
         
         const aiMessageId = Date.now() + 1;
         setMessages(prev => [...prev, { id: aiMessageId, text: '', sender: 'ai' }]);
         
         try {
             const chat = getAssistantChat();
-            const stream = await chat.sendMessageStream({ message: input });
+            const stream = await chat.sendMessageStream({ message: prompt });
             
             for await (const chunk of stream) {
                 setMessages(prev => prev.map(msg =>

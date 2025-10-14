@@ -1,5 +1,7 @@
 export type Role = 'Executive' | 'Administrator' | 'Developer';
 
+export type ReportType = 'TIBCO HTML' | 'Generic Log';
+
 export type User = {
   id: number;
   name: string;
@@ -143,6 +145,19 @@ export interface DetailedThreadReport {
   problematicThreads: ProblematicThread[];
 }
 
+export interface AISummary {
+  summary: string;
+  healthHighlights: string[];
+  areasOfConcern: ApplicationWarning[];
+}
+
+export interface AIDeeperAnalysis {
+    detailedNarrative: string;
+    rootCauseAnalysis: { issue: string; analysis: string }[];
+    recommendations: { category: string; recommendation: string }[];
+}
+
+
 export interface AnalysisResult {
   analysisType: 'AI' | 'Local';
   role?: Role;
@@ -158,6 +173,7 @@ export interface AnalysisResult {
   detailedThreadReport?: DetailedThreadReport;
   topProcessesByJobs?: { name: string; created: number }[];
   topActivitiesByTime?: { name: string; process: string; maxTime: number }[];
+  aiSummary?: AISummary;
 }
 
 export interface Session {

@@ -1,5 +1,6 @@
+
 import React, { useCallback, useRef, useState } from 'react';
-import { KubeConnection, Role } from '../../types';
+import { KubeConnection, Role, ReportType } from '../../types';
 
 interface K8sProps {
   onKubeconfigChange: (file: File | null) => void;
@@ -36,6 +37,8 @@ interface FileUploadProps {
   onIsAIEnabledChange: (isAI: boolean) => void;
   role: Role;
   onRoleChange: (role: Role) => void;
+  reportType: ReportType;
+  onReportTypeChange: (type: ReportType) => void;
   k8sProps: K8sProps;
 }
 
@@ -224,14 +227,14 @@ const AIToggle: React.FC<{ isEnabled: boolean; onChange: (enabled: boolean) => v
     </div>
 );
 
-const RoleSelector: React.FC<{ selectedRole: Role; onRoleChange: (role: Role) => void; isDisabled: boolean; }> = ({ selectedRole, onRoleChange, isDisabled }) => {
+const RoleSelector: React.FC<{ selectedRole: Role; onRoleChange: (role: Role) => void; }> = ({ selectedRole, onRoleChange }) => {
   const roles: Role[] = ['Executive', 'Administrator', 'Developer'];
   return (
-      <div className={`mt-4 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+      <div className="mt-4">
            <div className="text-gray-300 font-medium mb-2 text-center">Select AI Persona</div>
           <div className="flex bg-gray-700 rounded-lg p-1">
               {roles.map((role) => (
-                  <button key={role} onClick={() => !isDisabled && onRoleChange(role)} disabled={isDisabled}
+                  <button key={role} onClick={() => onRoleChange(role)}
                       className={`w-full text-center px-2 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none ${selectedRole === role ? 'bg-cyan-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}>
                       {role}
                   </button>
@@ -241,8 +244,35 @@ const RoleSelector: React.FC<{ selectedRole: Role; onRoleChange: (role: Role) =>
   );
 };
 
+const ReportTypeSelector: React.FC<{
+    selectedType: ReportType;
+    onTypeChange: (type: ReportType) => void;
+  }> = ({ selectedType, onTypeChange }) => {
+    const types: ReportType[] = ['TIBCO HTML', 'Generic Log'];
+    return (
+        <div className="mt-4">
+             <div className="text-gray-300 font-medium mb-2 text-center">Select Report Type</div>
+            <div className="flex bg-gray-700 rounded-lg p-1">
+                {types.map((type) => (
+                    <button
+                        key={type}
+                        onClick={() => onTypeChange(type)}
+                        className={`w-full text-center px-2 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none ${
+                            selectedType === type
+                                ? 'bg-cyan-600 text-white shadow'
+                                : 'text-gray-300 hover:bg-gray-600'
+                        }`}
+                    >
+                        {type}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+  };
 
-export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze, isLoading, fileCount, isAIEnabled, onIsAIEnabledChange, role, onRoleChange, k8sProps }) => {
+
+export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze, isLoading, fileCount, isAIEnabled, onIsAIEnabledChange, role, onRoleChange, reportType, onReportTypeChange, k8sProps }) => {
   const [activeTab, setActiveTab] = useState<'file' | 'k8s'>('file');
 
   const TabButton: React.FC<{ label: string; icon: React.ReactNode; tabName: 'file' | 'k8s'; }> = ({ label, icon, tabName }) => (
@@ -271,7 +301,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze
       <div className="mt-4 pt-4 border-t border-gray-700">
         <h2 className="text-xl font-semibold mb-4 text-cyan-400">2. Configure Analysis</h2>
         <AIToggle isEnabled={isAIEnabled} onChange={onIsAIEnabledChange} />
-        <RoleSelector selectedRole={role} onRoleChange={onRoleChange} isDisabled={!isAIEnabled} />
+        <ReportTypeSelector selectedType={reportType} onTypeChange={onReportTypeChange} />
+        {isAIEnabled && (
+          <RoleSelector selectedRole={role} onRoleChange={onRoleChange} />
+        )}
         <button
             onClick={onAnalyze}
             disabled={isLoading || fileCount === 0}
@@ -285,7 +318,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze
                 </svg>
                 Analyzing...
             </>
-            ) : `3. Analyze Reports ${isAIEnabled ? `(for ${role})` : '(Locally)'}`}
+            ) : `3. Analyze Reports (${reportType})${isAIEnabled ? ` - AI for ${role}` : ''}`}
         </button>
       </div>
     </div>

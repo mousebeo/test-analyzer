@@ -1,28 +1,45 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { FileUpload } from './analyzer/FileUpload';
-import { AnalysisResultDisplay } from './analyzer/AnalysisResultDisplay';
-import { analyzeSystemReports, getDetailedThreadAnalysis } from '../services/geminiService';
+import { AnalysisResultDisplay } from './AnalysisResultDisplay';
+import { getAIAnalysisSummary, getAIDeeperAnalysis } from '../services/geminiService';
 import { analyzeSystemReportsLocally } from '../services/localAnalysisService';
 import * as k8sService from '../services/kubernetesService';
 import * as sessionService from '../services/sessionService';
 import * as kubeConnectionService from '../services/kubeConnectionService';
-import { AnalysisResult, Role, KubeConnection } from '../types';
-import { ExecutiveDashboard } from './analyzer/ExecutiveDashboard';
+import { AnalysisResult, Role, KubeConnection, ReportType, AIDeeperAnalysis } from '../types';
+import { AIAnalysisSummaryView } from './analyzer/AIAnalysisSummaryView';
+import { AIDeeperAnalysisView } from './analyzer/AIDeeperAnalysisView';
 
 interface AnalyzerViewProps {
     initialResult: AnalysisResult | null;
     onClearInitialResult: () => void;
+    onAnalysisComplete: (result: AnalysisResult | null) => void;
 }
 
-export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onClearInitialResult }) => {
+const WelcomeState: React.FC = () => (
+    <div className="flex flex-col items-center justify-center h-full bg-gray-800 rounded-lg p-8 text-center">
+        <span className="text-6xl mb-4">🖥️</span>
+        <h2 className="text-2xl font-bold text-white mb-2">Welcome to the System Analyzer</h2>
+        <p className="text-gray-400 max-w-md">
+            Select a data source, configure your analysis, and get instant insights into your system's performance.
+        </p>
+    </div>
+);
+
+
+export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onClearInitialResult, onAnalysisComplete }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAnalyzingThreads, setIsAnalyzingThreads] = useState<boolean>(false);
-  const [threadError, setThreadError] = useState<string | null>(null);
-  const [isAIEnabled, setIsAIEnabled] = useState<boolean>(false);
+  const [isAIEnabled, setIsAIEnabled] = useState<boolean>(true);
   const [role, setRole] = useState<Role>('Administrator');
+  const [reportType, setReportType] = useState<ReportType>('TIBCO HTML');
+
+  // New state for two-stage AI analysis
+  const [deeperAnalysis, setDeeperAnalysis] = useState<AIDeeperAnalysis | null>(null);
+  const [isAnalyzingDeeper, setIsAnalyzingDeeper] = useState<boolean>(false);
+  const [deeperAnalysisError, setDeeperAnalysisError] = useState<string | null>(null);
 
   // K8s State
   const [kubeconfig, setKubeconfig] = useState<File | null>(null);
@@ -42,11 +59,21 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
   useEffect(() => {
       if (initialResult) {
           setAnalysisResult(initialResult);
-          setFiles([]); // Clear file selection when viewing a saved session
-          onClearInitialResult(); // Signal to parent that the initial result has been consumed
+          onAnalysisComplete(initialResult);
+          setFiles([]);
+          setDeeperAnalysis(null);
+          onClearInitialResult();
       }
       setSavedConnections(kubeConnectionService.getConnections());
-  }, [initialResult, onClearInitialResult]);
+  }, [initialResult, onClearInitialResult, onAnalysisComplete]);
+
+    const resetState = () => {
+        setAnalysisResult(null);
+        onAnalysisComplete(null);
+        setError(null);
+        setDeeperAnalysis(null);
+        setDeeperAnalysisError(null);
+    }
 
   const resetK8sSelection = (level: 'namespace' | 'workloadType' | 'workload' | 'pod' | 'container' | 'full') => {
     if (level === 'full') {
@@ -165,9 +192,7 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
 
   const handleFilesChange = useCallback((selectedFiles: File[]) => {
     setFiles(selectedFiles);
-    setAnalysisResult(null);
-    setError(null);
-    setThreadError(null);
+    resetState();
   }, []);
 
   const handleAnalyze = useCallback(async () => {
@@ -175,52 +200,56 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
       setError("Please upload at least one report file or fetch logs from Kubernetes.");
       return;
     }
-
+    
     setIsLoading(true);
-    setError(null);
-    setThreadError(null);
-    setAnalysisResult(null);
+    resetState();
 
     try {
-      const result = isAIEnabled
-        ? await analyzeSystemReports(files, role)
-        : await analyzeSystemReportsLocally(files);
-      setAnalysisResult(result);
-      sessionService.saveSession(result, files);
+      // Step 1: Always perform local analysis first to get structured data.
+      const localResult = await analyzeSystemReportsLocally(files, reportType);
+
+      if (isAIEnabled) {
+        // Step 2: If AI is on, get the AI summary based on local data + raw files.
+        const aiSummary = await getAIAnalysisSummary(localResult, files, role);
+        const finalResult: AnalysisResult = {
+          ...localResult,
+          analysisType: 'AI',
+          role: role,
+          aiSummary: aiSummary,
+          summary: aiSummary.summary, // Overwrite local summary with AI summary
+        };
+        setAnalysisResult(finalResult);
+        onAnalysisComplete(finalResult);
+        sessionService.saveSession(finalResult, files);
+      } else {
+        // Just use the local result.
+        setAnalysisResult(localResult);
+        onAnalysisComplete(localResult);
+        sessionService.saveSession(localResult, files);
+      }
     } catch (err) {
       console.error("Analysis failed:", err);
       setError(err instanceof Error ? `An error occurred during analysis: ${err.message}` : "An unknown error occurred.");
     } finally {
       setIsLoading(false);
     }
-  }, [files, isAIEnabled, role]);
+  }, [files, isAIEnabled, role, reportType, onAnalysisComplete]);
   
-  const handleAnalyzeThreads = useCallback(async () => {
-    if (files.length === 0) {
-      setThreadError("Files are not available for thread analysis.");
-      return;
-    }
+  const handleDeeperAnalysis = useCallback(async () => {
+    if (!analysisResult) return;
 
-    setIsAnalyzingThreads(true);
-    setThreadError(null);
+    setIsAnalyzingDeeper(true);
+    setDeeperAnalysisError(null);
 
     try {
-      const threadReport = await getDetailedThreadAnalysis(files);
-      setAnalysisResult(prevResult => {
-        if (!prevResult) return null;
-        const updatedResult = {
-          ...prevResult,
-          detailedThreadReport: threadReport,
-        };
-        return updatedResult;
-      });
+      const deepDive = await getAIDeeperAnalysis(analysisResult, files, role);
+      setDeeperAnalysis(deepDive);
     } catch (err) {
-      console.error("Thread analysis failed:", err);
-      setThreadError(err instanceof Error ? err.message : "An unknown error occurred during thread analysis.");
+      setDeeperAnalysisError(err instanceof Error ? err.message : "An unknown error occurred during the deep analysis.");
     } finally {
-      setIsAnalyzingThreads(false);
+      setIsAnalyzingDeeper(false);
     }
-  }, [files]);
+  }, [analysisResult, files, role]);
 
   const handleSaveConnection = () => {
       if (!selectedNamespace || !selectedWorkload || !selectedPod || !selectedContainer) return;
@@ -243,11 +272,8 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
     }
     const conn = savedConnections.find(c => c.id === connectionId);
     if (conn) {
-        // This will trigger the cascade of useEffects to populate dropdowns
         setWorkloadType(conn.workloadType);
         setSelectedNamespace(conn.namespace);
-        // We set these values directly. The useEffects will re-fetch the lists,
-        // and these selections will be valid once the lists are populated.
         setSelectedWorkload(conn.workload);
         setSelectedPod(conn.pod);
         setSelectedContainer(conn.container);
@@ -276,6 +302,49 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
     onDeleteConnection: handleDeleteConnection,
   };
 
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full bg-gray-800/50 rounded-lg p-8">
+            <svg className="animate-spin h-12 w-12 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="mt-4 text-lg font-semibold text-gray-300">Performing Analysis...</p>
+        </div>
+      );
+    }
+
+    if(error) {
+        return (
+             <div className="flex flex-col items-center justify-center h-full bg-red-900/20 border border-red-500 rounded-lg p-8 text-center">
+                <span className="text-5xl mb-4">⚠️</span>
+                <h3 className="text-xl font-bold text-red-400 mb-2">Analysis Failed</h3>
+                <p className="text-red-300">{error}</p>
+            </div>
+        )
+    }
+
+    if (deeperAnalysis) {
+        return <AIDeeperAnalysisView analysis={deeperAnalysis} onBack={() => setDeeperAnalysis(null)} />;
+    }
+
+    if (analysisResult) {
+        if (analysisResult.analysisType === 'AI') {
+            return <AIAnalysisSummaryView 
+                        result={analysisResult} 
+                        onDeeperAnalysis={handleDeeperAnalysis} 
+                        isAnalyzingDeeper={isAnalyzingDeeper}
+                        deeperAnalysisError={deeperAnalysisError}
+                    />;
+        } else {
+             return <AnalysisResultDisplay result={analysisResult} />;
+        }
+    }
+
+    return <WelcomeState />;
+  }
+
   return (
     <div className="animate-fade-in">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -289,22 +358,13 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
                 onIsAIEnabledChange={setIsAIEnabled}
                 role={role}
                 onRoleChange={setRole}
+                reportType={reportType}
+                onReportTypeChange={setReportType}
                 k8sProps={k8sProps}
             />
             </div>
             <div className="lg:col-span-8 xl:col-span-9">
-            { analysisResult && analysisResult.analysisType === 'AI' && analysisResult.role === 'Executive' ? (
-                <ExecutiveDashboard result={analysisResult} />
-            ) : (
-                <AnalysisResultDisplay
-                    isLoading={isLoading}
-                    error={error}
-                    result={analysisResult}
-                    onAnalyzeThreads={handleAnalyzeThreads}
-                    isAnalyzingThreads={isAnalyzingThreads}
-                    threadError={threadError}
-                />
-            )}
+                {renderContent()}
             </div>
         </div>
     </div>

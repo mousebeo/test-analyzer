@@ -1,4 +1,4 @@
-import { AnalysisResult, ThreadState, Application, EnvironmentVariable, SystemInfo, MemoryAnalysis, ThreadAnalysis, KeyMetric, ProcessStats, DetailedThreadReport, ProblematicThread, ApplicationWarning, Process, Activity, ChartDataPoint } from '../types';
+import { AnalysisResult, ThreadState, Application, EnvironmentVariable, SystemInfo, MemoryAnalysis, ThreadAnalysis, KeyMetric, ProcessStats, DetailedThreadReport, ProblematicThread, ApplicationWarning, Process, Activity, ChartDataPoint, ReportType, DetailedApplicationReport } from '../types';
 
 async function fileToText(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -168,11 +168,10 @@ const parseChartData = (scriptContent: string) => {
     return { headers, points };
 };
 
-
-export async function analyzeSystemReportsLocally(files: File[]): Promise<AnalysisResult> {
+async function parseTibcoHtmlReport(files: File[]): Promise<AnalysisResult> {
     const htmlFile = files.find(f => f.name.endsWith('.html'));
     if (!htmlFile) {
-        throw new Error("Local analysis currently supports TIBCO HTML report files only.");
+        throw new Error("TIBCO HTML analysis requires a .html file.");
     }
     const content = await fileToText(htmlFile);
 
@@ -529,4 +528,92 @@ export async function analyzeSystemReportsLocally(files: File[]): Promise<Analys
     result.keyMetrics = keyMetrics.slice(0, 6);
 
     return result;
+}
+
+
+async function parseGenericLogFiles(files: File[]): Promise<AnalysisResult> {
+    const textFiles = files.filter(f => f.name.endsWith('.log') || f.name.endsWith('.txt'));
+    if (textFiles.length === 0) {
+        throw new Error("Generic Log analysis requires .log or .txt files.");
+    }
+
+    const contents = await Promise.all(textFiles.map(fileToText));
+    const fullLog = contents.join('\n');
+    const lines = fullLog.split('\n');
+
+    let errorCount = 0;
+    let warningCount = 0;
+    const errors: string[] = [];
+    
+    lines.forEach(line => {
+        if (/\b(ERROR|Exception)\b/i.test(line)) {
+            errorCount++;
+            if (errors.length < 10) {
+                errors.push(line);
+            }
+        }
+        if (/\b(WARN|WARNING)\b/i.test(line)) {
+            warningCount++;
+        }
+    });
+
+    const summary = `Parsed ${textFiles.length} log file(s) with a total of ${lines.length} lines. Found ${errorCount} error(s) and ${warningCount} warning(s). This is a basic analysis; for deeper insights, use the AI analysis feature.`;
+
+    const keyMetrics: KeyMetric[] = [
+        { label: 'Files Analyzed', value: textFiles.length.toString() },
+        { label: 'Total Lines', value: lines.length.toLocaleString() },
+        { label: 'Errors Found', value: errorCount.toLocaleString() },
+        { label: 'Warnings Found', value: warningCount.toLocaleString() },
+    ];
+    
+    const applications: Application[] = [];
+    const detailedApplicationReports: DetailedApplicationReport[] = [];
+    if (errorCount > 0 || warningCount > 0) {
+        const warnings: ApplicationWarning[] = [];
+        if (errorCount > 0) {
+             warnings.push({ severity: 'High', description: `Found ${errorCount} errors. Sample: ${errors[0] || ''}` });
+        }
+        if (warningCount > 0) {
+             warnings.push({ severity: 'Medium', description: `Found ${warningCount} warnings.` });
+        }
+
+        detailedApplicationReports.push({
+            applicationName: "Generic Log Analysis",
+            performanceSummary: `The logs contain ${errorCount} error(s) and ${warningCount} warning(s), which could indicate problems.`,
+            serviceCalls: [],
+            warnings: warnings
+        });
+
+        applications.push({
+            name: "Generic Log File",
+            state: errorCount > 0 ? "Faulted" : "Warnings",
+            endpoints: [],
+            processes: []
+        });
+    }
+
+    return {
+        analysisType: 'Local',
+        summary,
+        keyMetrics,
+        systemInfo: { osName: 'N/A', osVersion: '', architecture: 'N/A', totalPhysicalMemory: 'N/A', freePhysicalMemory: 'N/A', cpuLoad: 'N/A', availableProcessors: 0 },
+        memoryAnalysis: { heap: { init: 0, used: 0, committed: 0, max: 0 }, nonHeap: { init: 0, used: 0, committed: 0, max: 0 } },
+        threadAnalysis: { totalThreads: 0, peakThreads: 0, daemonThreads: 0, deadlockedThreads: [], threadStates: [] },
+        applications,
+        detailedApplicationReports,
+        importantEnvVars: [],
+        processStats: { totalJobsCreated: 0, totalActiveJobs: 0, totalJobsFaulted: errorCount },
+    };
+}
+
+
+export async function analyzeSystemReportsLocally(files: File[], reportType: ReportType): Promise<AnalysisResult> {
+    switch (reportType) {
+        case 'TIBCO HTML':
+            return parseTibcoHtmlReport(files);
+        case 'Generic Log':
+            return parseGenericLogFiles(files);
+        default:
+            throw new Error(`Unsupported local report type: ${reportType}`);
+    }
 }
