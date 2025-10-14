@@ -1,0 +1,5 @@
+{
+  "name": "System Report Analyzer",
+  "description": "An intelligent dashboard that analyzes system performance and status reports. Upload your log files to receive a comprehensive summary, key metrics, and a detailed breakdown of applications, processes, memory, and thread activity, powered by Gemini.",
+  "requestFramePermissions": []
+}
