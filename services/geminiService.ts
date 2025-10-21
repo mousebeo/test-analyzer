@@ -187,6 +187,33 @@ export async function getAIDeeperAnalysis(localResult: AnalysisResult, files: Fi
     }
 }
 
+export async function getRAGCompletion(question: string, context: string): Promise<string> {
+    const prompt = `
+        Based ONLY on the following context, answer the user's question.
+        Provide a detailed answer using information from the context.
+        If the context does not contain the answer, state that you cannot answer the question based on the provided documents.
+
+        CONTEXT:
+        ---
+        ${context}
+        ---
+
+        QUESTION: ${question}
+    `;
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Gemini RAG completion call failed:", error);
+        throw new Error("Failed to get a completion from the AI for RAG. Check the console for details.");
+    }
+}
+
+
 let assistantChat: Chat | null = null;
 export function getAssistantChat(): Chat {
     if (assistantChat) {

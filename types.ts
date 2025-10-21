@@ -192,3 +192,36 @@ export interface KubeConnection {
     pod: string;
     container: string;
 }
+
+// --- RAG (Retrieval-Augmented Generation) Types ---
+
+export interface RAGConfig {
+  pineconeApiKey: string;
+  pineconeHost: string;
+  ollamaHost: string;
+  ollamaModel: string;
+}
+
+export interface IndexedDocument {
+  id: string;
+  name: string;
+  status: 'indexing' | 'ready' | 'error';
+  uploadedAt: number;
+}
+
+export interface PineconeVector {
+    id: string;
+    values: number[];
+    metadata: {
+        text: string;
+    };
+}
+
+export interface PineconeQueryResult {
+    id: string;
+    score: number;
+    values: number[];
+    metadata: {
+        text: string;
+    };
+}

@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { AnalysisResult } from '../types';
 import { SystemInfoTab } from './tabs/SystemInfoTab';
 import { EnvironmentTab } from './tabs/EnvironmentTab';
-import { ApplicationsTab } from './tabs/ApplicationsTab';
-import { ProcessesTab } from './tabs/ProcessesTab';
 import { MemoryTab } from './tabs/MemoryTab';
 import { ThreadsTab } from './tabs/ThreadsTab';
 
@@ -12,7 +10,7 @@ interface DetailTabsProps {
 }
 
 const tabs = [
-  'System', 'Memory', 'Threads', 'Applications', 'Processes', 'Environment'
+  'System', 'Memory', 'Threads', 'Environment'
 ];
 
 export const DetailTabs: React.FC<DetailTabsProps> = ({ result }) => {
@@ -24,10 +22,6 @@ export const DetailTabs: React.FC<DetailTabsProps> = ({ result }) => {
         return <SystemInfoTab data={result.systemInfo} />;
       case 'Environment':
         return <EnvironmentTab data={result.importantEnvVars} />;
-      case 'Applications':
-        return <ApplicationsTab data={result.applications} detailedReports={result.detailedApplicationReports} />;
-      case 'Processes':
-        return <ProcessesTab data={result.processStats} />;
       case 'Memory':
           return <MemoryTab data={result.memoryAnalysis} />;
       case 'Threads':

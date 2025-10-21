@@ -1,20 +1,20 @@
-
-
-import React, { useState } from 'react';
-import { User, AnalysisResult } from '../types';
-import { DashboardIcon, AnalyzerIcon, UsersIcon, LogoutIcon } from '../assets/icons';
+import React, { useState, useEffect } from 'react';
+import { User, AnalysisResult, IndexedDocument, RAGConfig } from '../types';
+import { DashboardIcon, AnalyzerIcon, UsersIcon, LogoutIcon, KnowledgeBaseIcon } from '../assets/icons';
 import { DashboardView } from './DashboardView';
 import { AnalyzerView } from './AnalyzerView';
 import { UserManagementView } from './UserManagementView';
 import { AIAssistant } from './AIAssistant';
 import * as sessionService from '../services/sessionService';
+import * as ragService from '../services/ragService';
+import { RAGView } from './RAGView';
 
 interface MainLayoutProps {
   user: User;
   onLogout: () => void;
 }
 
-type View = 'dashboard' | 'analyzer' | 'users';
+type View = 'dashboard' | 'analyzer' | 'users' | 'rag';
 
 const NavItem: React.FC<{
     icon: React.ReactElement;
@@ -40,10 +40,35 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
     const [activeView, setActiveView] = useState<View>('dashboard');
     const [loadedResult, setLoadedResult] = useState<AnalysisResult | null>(null);
     const [analysisContext, setAnalysisContext] = useState<AnalysisResult | null>(null);
+    const [documents, setDocuments] = useState<IndexedDocument[]>([]);
+    const [ragConfig, setRagConfig] = useState<RAGConfig>(ragService.getConfig());
+
+
+    useEffect(() => {
+        setDocuments(ragService.getIndexedDocuments());
+    }, []);
+    
+    const handleSaveRagConfig = (newConfig: RAGConfig) => {
+        ragService.saveConfig(newConfig);
+        setRagConfig(newConfig);
+    };
+
+    const handleUploadDocument = async (file: File, context: { machineName?: string } = {}) => {
+        await ragService.uploadDocument(file, ragConfig, (updatedDocs) => {
+            setDocuments([...updatedDocs]);
+        }, context);
+    };
+
+    const handleDeleteDocument = (docId: string) => {
+        const updatedDocs = ragService.deleteDocument(docId);
+        setDocuments(updatedDocs);
+    };
 
     const handleViewChange = (view: View) => {
         if (view !== 'analyzer') {
             setLoadedResult(null);
+        }
+        if (view !== 'analyzer' && view !== 'rag') {
             setAnalysisContext(null);
         }
         setActiveView(view);
@@ -67,9 +92,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
                             initialResult={loadedResult} 
                             onClearInitialResult={() => setLoadedResult(null)}
                             onAnalysisComplete={setAnalysisContext}
+                            onUploadDocument={handleUploadDocument}
                         />;
             case 'users':
                 return <UserManagementView />;
+            case 'rag':
+                return <RAGView 
+                            documents={documents}
+                            config={ragConfig}
+                            onSaveConfig={handleSaveRagConfig}
+                            onUpload={handleUploadDocument}
+                            onDelete={handleDeleteDocument}
+                        />;
             default:
                 return <DashboardView user={user} setActiveView={handleViewChange} onLoadSession={handleLoadSession} />;
         }
@@ -87,6 +121,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
                 <nav className="flex-1 mt-6 space-y-2">
                     <NavItem icon={<DashboardIcon />} label="Dashboard" isActive={activeView === 'dashboard'} onClick={() => handleViewChange('dashboard')} />
                     <NavItem icon={<AnalyzerIcon />} label="System Analyzer" isActive={activeView === 'analyzer'} onClick={() => handleViewChange('analyzer')} />
+                    <NavItem icon={<KnowledgeBaseIcon />} label="Doc Intelligence" isActive={activeView === 'rag'} onClick={() => handleViewChange('rag')} />
                     <NavItem icon={<UsersIcon />} label="User Management" isActive={activeView === 'users'} onClick={() => handleViewChange('users')} />
                 </nav>
                 <div className="p-4 border-t border-gray-700">
@@ -112,7 +147,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
                     {renderView()}
                 </main>
             </div>
-            <AIAssistant context={analysisContext} />
+            <AIAssistant context={analysisContext} config={ragConfig} />
         </div>
     );
 };

@@ -9,11 +9,15 @@ import * as kubeConnectionService from '../services/kubeConnectionService';
 import { AnalysisResult, Role, KubeConnection, ReportType, AIDeeperAnalysis } from '../types';
 import { AIAnalysisSummaryView } from './analyzer/AIAnalysisSummaryView';
 import { AIDeeperAnalysisView } from './analyzer/AIDeeperAnalysisView';
+import { formatResultAsMarkdown } from '../services/reportFormatterService';
+import { SaveToKBModal } from './analyzer/SaveToKBModal';
+
 
 interface AnalyzerViewProps {
     initialResult: AnalysisResult | null;
     onClearInitialResult: () => void;
     onAnalysisComplete: (result: AnalysisResult | null) => void;
+    onUploadDocument: (file: File, context: { machineName?: string }) => Promise<void>;
 }
 
 const WelcomeState: React.FC = () => (
@@ -27,7 +31,7 @@ const WelcomeState: React.FC = () => (
 );
 
 
-export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onClearInitialResult, onAnalysisComplete }) => {
+export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onClearInitialResult, onAnalysisComplete, onUploadDocument }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -40,6 +44,12 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
   const [deeperAnalysis, setDeeperAnalysis] = useState<AIDeeperAnalysis | null>(null);
   const [isAnalyzingDeeper, setIsAnalyzingDeeper] = useState<boolean>(false);
   const [deeperAnalysisError, setDeeperAnalysisError] = useState<string | null>(null);
+
+  // State for saving to knowledge base
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isSavingToKB, setIsSavingToKB] = useState(false);
+  const [saveToKBError, setSaveToKBError] = useState<string | null>(null);
+  const [saveToKBSuccess, setSaveToKBSuccess] = useState(false);
 
   // K8s State
   const [kubeconfig, setKubeconfig] = useState<File | null>(null);
@@ -73,6 +83,8 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
         setError(null);
         setDeeperAnalysis(null);
         setDeeperAnalysisError(null);
+        setSaveToKBError(null);
+        setSaveToKBSuccess(false);
     }
 
   const resetK8sSelection = (level: 'namespace' | 'workloadType' | 'workload' | 'pod' | 'container' | 'full') => {
@@ -250,6 +262,34 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
       setIsAnalyzingDeeper(false);
     }
   }, [analysisResult, files, role]);
+  
+  const handleConfirmSaveToKB = async (machineName: string) => {
+      if (!analysisResult || !machineName) return;
+      
+      setIsSavingToKB(true);
+      setSaveToKBError(null);
+      setSaveToKBSuccess(false);
+
+      try {
+          const markdownContent = formatResultAsMarkdown(analysisResult);
+          const reportFile = new File(
+              [markdownContent], 
+              `analysis-report-${machineName.replace(/\s/g, '_')}-${Date.now()}.md`, 
+              { type: 'text/markdown' }
+          );
+
+          await onUploadDocument(reportFile, { machineName });
+
+          setSaveToKBSuccess(true);
+          setTimeout(() => setSaveToKBSuccess(false), 4000);
+      } catch (error) {
+          setSaveToKBError(error instanceof Error ? error.message : "An unknown error occurred while saving.");
+          setTimeout(() => setSaveToKBError(null), 5000);
+      } finally {
+          setIsSavingToKB(false);
+          setIsSaveModalOpen(false);
+      }
+  };
 
   const handleSaveConnection = () => {
       if (!selectedNamespace || !selectedWorkload || !selectedPod || !selectedContainer) return;
@@ -336,9 +376,19 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
                         onDeeperAnalysis={handleDeeperAnalysis} 
                         isAnalyzingDeeper={isAnalyzingDeeper}
                         deeperAnalysisError={deeperAnalysisError}
+                        onSaveToKB={() => setIsSaveModalOpen(true)}
+                        isSavingToKB={isSavingToKB}
+                        saveToKBSuccess={saveToKBSuccess}
+                        saveToKBError={saveToKBError}
                     />;
         } else {
-             return <AnalysisResultDisplay result={analysisResult} />;
+             return <AnalysisResultDisplay 
+                        result={analysisResult} 
+                        onSaveToKB={() => setIsSaveModalOpen(true)}
+                        isSavingToKB={isSavingToKB}
+                        saveToKBSuccess={saveToKBSuccess}
+                        saveToKBError={saveToKBError}
+                    />;
         }
     }
 
@@ -347,6 +397,13 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
 
   return (
     <div className="animate-fade-in">
+        {isSaveModalOpen && (
+            <SaveToKBModal
+                onClose={() => setIsSaveModalOpen(false)}
+                onSave={handleConfirmSaveToKB}
+                isSaving={isSavingToKB}
+            />
+        )}
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-4 xl:col-span-3">
             <FileUpload 

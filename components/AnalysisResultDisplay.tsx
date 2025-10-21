@@ -1,28 +1,85 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AnalysisResult } from '../types';
 import { SummaryView } from './SummaryView';
 import { DetailTabs } from './DetailTabs';
+import { ApplicationsTab } from './tabs/ApplicationsTab';
+import { SaveToKBButton } from './analyzer/SaveToKBButton';
 
 interface AnalysisResultDisplayProps {
   result: AnalysisResult;
+  onSaveToKB: () => void;
+  isSavingToKB: boolean;
+  saveToKBSuccess: boolean;
+  saveToKBError: string | null;
 }
 
-export const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result }) => {
+type MainTab = 'summary' | 'applications';
+
+export const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result, onSaveToKB, isSavingToKB, saveToKBSuccess, saveToKBError }) => {
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>('summary');
+
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div>
-        <h2 className="text-2xl font-bold text-cyan-400 mb-4">
+    <div className="space-y-6">
+      <div className="border-b border-gray-700">
+        <nav className="-mb-px flex space-x-6">
+          <button
+            onClick={() => setActiveMainTab('summary')}
+            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-lg transition-colors ${
+              activeMainTab === 'summary'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-gray-500 hover:text-gray-300'
+            }`}
+          >
             Analysis Summary
-            <span className="text-sm font-normal text-gray-500">
-                (Local Analysis)
-            </span>
-        </h2>
-        <SummaryView summary={result.summary} keyMetrics={result.keyMetrics} />
+          </button>
+          <button
+            onClick={() => setActiveMainTab('applications')}
+            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-lg transition-colors ${
+              activeMainTab === 'applications'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Applications &amp; Processes
+          </button>
+        </nav>
       </div>
-      <div>
-        <h2 className="text-2xl font-bold text-cyan-400 mb-4">Detailed Breakdown</h2>
-        <DetailTabs result={result} />
-      </div>
+
+      {activeMainTab === 'summary' && (
+        <div className="space-y-8 animate-fade-in">
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-cyan-400">
+                Overall Health Summary
+                <span className="text-sm font-normal text-gray-500">
+                  (Local Analysis)
+                </span>
+              </h2>
+              <SaveToKBButton
+                onSave={onSaveToKB}
+                isSaving={isSavingToKB}
+                saveSuccess={saveToKBSuccess}
+                saveError={saveToKBError}
+              />
+            </div>
+            <SummaryView summary={result.summary} keyMetrics={result.keyMetrics} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-cyan-400 mb-4">Detailed System Metrics</h2>
+            <DetailTabs result={result} />
+          </div>
+        </div>
+      )}
+      
+      {activeMainTab === 'applications' && (
+        <div className="animate-fade-in">
+          <ApplicationsTab 
+            applications={result.applications}
+            processStats={result.processStats}
+            detailedReports={result.detailedApplicationReports}
+          />
+        </div>
+      )}
     </div>
   );
 };

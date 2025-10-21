@@ -1,12 +1,17 @@
 import React from 'react';
 import { AnalysisResult, ApplicationWarning } from '../../types';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { SaveToKBButton } from './SaveToKBButton';
 
 interface AIAnalysisSummaryViewProps {
     result: AnalysisResult;
     onDeeperAnalysis: () => void;
     isAnalyzingDeeper: boolean;
     deeperAnalysisError: string | null;
+    onSaveToKB: () => void;
+    isSavingToKB: boolean;
+    saveToKBSuccess: boolean;
+    saveToKBError: string | null;
 }
 
 const HealthHighlight: React.FC<{ text: string }> = ({ text }) => (
@@ -45,7 +50,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
-export const AIAnalysisSummaryView: React.FC<AIAnalysisSummaryViewProps> = ({ result, onDeeperAnalysis, isAnalyzingDeeper, deeperAnalysisError }) => {
+export const AIAnalysisSummaryView: React.FC<AIAnalysisSummaryViewProps> = ({ result, onDeeperAnalysis, isAnalyzingDeeper, deeperAnalysisError, onSaveToKB, isSavingToKB, saveToKBSuccess, saveToKBError }) => {
     const aiSummary = result.aiSummary;
 
     if (!aiSummary) {
@@ -55,9 +60,17 @@ export const AIAnalysisSummaryView: React.FC<AIAnalysisSummaryViewProps> = ({ re
     return (
         <div className="space-y-8 animate-fade-in">
             <div>
-                <h2 className="text-2xl font-bold text-cyan-400 mb-4">
-                    AI Analysis Summary <span className="text-sm font-normal text-gray-500">({result.role} View)</span>
-                </h2>
+                <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-2xl font-bold text-cyan-400">
+                        AI Analysis Summary <span className="text-sm font-normal text-gray-500">({result.role} View)</span>
+                    </h2>
+                    <SaveToKBButton
+                        onSave={onSaveToKB}
+                        isSaving={isSavingToKB}
+                        saveSuccess={saveToKBSuccess}
+                        saveError={saveToKBError}
+                    />
+                </div>
                 <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
                     <p className="text-gray-300 leading-relaxed">{aiSummary.summary}</p>
                 </div>

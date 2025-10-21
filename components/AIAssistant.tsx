@@ -1,9 +1,8 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { getAssistantChat } from '../services/geminiService';
+import * as ragService from '../services/ragService';
 import { AssistantIcon, CloseIcon, SendIcon } from '../assets/icons';
-import { AnalysisResult } from '../types';
+import { AnalysisResult, RAGConfig } from '../types';
 
 interface Message {
   id: number;
@@ -13,12 +12,13 @@ interface Message {
 
 interface AIAssistantProps {
     context: AnalysisResult | null;
+    config: RAGConfig;
 }
 
-export const AIAssistant: React.FC<AIAssistantProps> = ({ context }) => {
+export const AIAssistant: React.FC<AIAssistantProps> = ({ context, config }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { id: 1, text: "Hi! I'm Sys, your AI assistant. How can I help you analyze your system reports today?", sender: 'ai' }
+        { id: 1, text: "Hi! I'm Sys. Ask me about your current analysis, or ask questions about past reports by using words like 'compare', 'history', or 'in the past'.", sender: 'ai' }
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -35,52 +35,63 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ context }) => {
         
         const userMessage: Message = { id: Date.now(), text: input, sender: 'user' };
         setMessages(prev => [...prev, userMessage]);
+        const question = input;
         setInput('');
         setIsLoading(true);
 
-        let prompt = input;
-        if (context) {
-            // Create a summarized version of the context to avoid large token counts
-            const summarizedContext = {
-                analysisType: context.analysisType,
-                role: context.role,
-                summary: context.summary,
-                keyMetrics: context.keyMetrics,
-                ...(context.aiSummary && {
-                    healthHighlights: context.aiSummary.healthHighlights,
-                    areasOfConcern: context.aiSummary.areasOfConcern,
-                })
-            };
-            prompt = `
-CONTEXT: The user is currently viewing the following system analysis report. Use this data to answer their question.
-\`\`\`json
-${JSON.stringify(summarizedContext, null, 2)}
-\`\`\`
+        const ragKeywords = ['compare', 'history', 'last report', 'vs', 'trend', 'what was', 'in the past', 'knowledge base', 'document'];
+        const shouldUseRAG = ragKeywords.some(keyword => question.toLowerCase().includes(keyword));
 
-USER QUESTION: ${input}
-            `;
-        }
-        
-        const aiMessageId = Date.now() + 1;
-        setMessages(prev => [...prev, { id: aiMessageId, text: '', sender: 'ai' }]);
-        
-        try {
-            const chat = getAssistantChat();
-            const stream = await chat.sendMessageStream({ message: prompt });
-            
-            for await (const chunk of stream) {
-                setMessages(prev => prev.map(msg =>
-                    msg.id === aiMessageId ? { ...msg, text: msg.text + chunk.text } : msg
-                ));
+        if (shouldUseRAG) {
+            // RAG Flow (non-streaming)
+            try {
+                const responseText = await ragService.askQuestion(question, config);
+                const aiMessage: Message = { id: Date.now() + 1, text: responseText, sender: 'ai' };
+                setMessages(prev => [...prev, aiMessage]);
+            } catch (error) {
+                const text = error instanceof Error ? error.message : "Sorry, I encountered an error searching the knowledge base.";
+                const errorMessage: Message = { id: Date.now() + 1, text, sender: 'ai' };
+                setMessages(prev => [...prev, errorMessage]);
+            } finally {
+                setIsLoading(false);
             }
-
-        } catch (error) {
-            console.error('AI Assistant Error:', error);
-            setMessages(prev => prev.map(msg =>
-                msg.id === aiMessageId ? { ...msg, text: "Sorry, I encountered an error. Please try again." } : msg
-            ));
-        } finally {
-            setIsLoading(false);
+        } else {
+            // Standard Chat Flow (streaming)
+            let prompt = question;
+            if (context) {
+                const summarizedContext = {
+                    analysisType: context.analysisType,
+                    role: context.role,
+                    summary: context.summary,
+                    keyMetrics: context.keyMetrics,
+                    ...(context.aiSummary && {
+                        healthHighlights: context.aiSummary.healthHighlights,
+                        areasOfConcern: context.aiSummary.areasOfConcern,
+                    })
+                };
+                prompt = `CONTEXT: The user is currently viewing the following system analysis report. Use this data to answer their question.\n\`\`\`json\n${JSON.stringify(summarizedContext, null, 2)}\n\`\`\`\n\nUSER QUESTION: ${question}`;
+            }
+            
+            const aiMessageId = Date.now() + 1;
+            setMessages(prev => [...prev, { id: aiMessageId, text: '', sender: 'ai' }]);
+            
+            try {
+                const chat = getAssistantChat();
+                const stream = await chat.sendMessageStream({ message: prompt });
+                
+                for await (const chunk of stream) {
+                    setMessages(prev => prev.map(msg =>
+                        msg.id === aiMessageId ? { ...msg, text: msg.text + chunk.text } : msg
+                    ));
+                }
+            } catch (error) {
+                console.error('AI Assistant Error:', error);
+                setMessages(prev => prev.map(msg =>
+                    msg.id === aiMessageId ? { ...msg, text: "Sorry, I encountered an error. Please try again." } : msg
+                ));
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
     
