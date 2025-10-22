@@ -1,4 +1,3 @@
-
 import { RAGConfig, IndexedDocument, PineconeVector, PineconeQueryResult, VectorDBConfig, EmbeddingConfig, APIEndpoints } from '../types';
 import { chunkText } from './textUtils';
 import * as geminiService from './geminiService';
@@ -83,60 +82,68 @@ function saveIndexedDocuments(documents: IndexedDocument[]): void {
 }
 
 // --- Helper to resolve URL placeholders ---
-function resolveUrl(template: string, config: RAGConfig): string {
+function resolveUrl(template: string, config: RAGConfig, context: 'embedding' | 'vectorDB'): string {
     let url = template;
     const { vectorDB, embedding } = config;
 
-    if (vectorDB.type === 'Pinecone' || vectorDB.type === 'Qdrant' || vectorDB.type === 'Weaviate' || vectorDB.type === 'ChromaDB') {
-        url = url.replace('{host}', vectorDB.config.host || '');
-    }
-    if (vectorDB.type === 'Pinecone' || vectorDB.type === 'Qdrant' || vectorDB.type === 'Weaviate') {
-         url = url.replace('{apiKey}', vectorDB.config.apiKey || '');
+    if (context === 'embedding') {
+        if (embedding.type === 'Ollama') {
+            url = url.replace('{host}', embedding.config.host || '');
+            url = url.replace('{model}', embedding.config.model || '');
+        }
+        if (embedding.type === 'GoogleAI') {
+            url = url.replace('{apiKey}', embedding.config.apiKey || '');
+            url = url.replace('{model}', embedding.config.model || '');
+        }
     }
 
-    if (embedding.type === 'Ollama') {
-         url = url.replace('{host}', embedding.config.host || '');
-         url = url.replace('{model}', embedding.config.model || '');
-    }
-    if (embedding.type === 'GoogleAI') {
-        url = url.replace('{apiKey}', embedding.config.apiKey || '');
-        url = url.replace('{model}', embedding.config.model || '');
+    if (context === 'vectorDB') {
+        if (vectorDB.type === 'Pinecone' || vectorDB.type === 'Qdrant' || vectorDB.type === 'Weaviate' || vectorDB.type === 'ChromaDB') {
+            url = url.replace('{host}', (vectorDB.config as any).host || '');
+        }
+        // Specific check for apiKey
+        if (vectorDB.type === 'Pinecone' || vectorDB.type === 'Qdrant' || vectorDB.type === 'Weaviate') {
+             url = url.replace('{apiKey}', (vectorDB.config as any).apiKey || '');
+        }
     }
 
     return url;
 }
 
+
 // --- Embedding Implementations ---
 
 async function embedWithOllama(texts: string[], config: RAGConfig): Promise<number[][]> {
     const { model } = config.embedding.config as { model: string };
-    const apiUrl = resolveUrl(config.apiEndpoints.ollamaEmbed, config);
+    const apiUrl = resolveUrl(config.apiEndpoints.ollamaEmbed, config, 'embedding');
 
-    const embeddings: number[][] = [];
-    for (const text of texts) {
-        const response = await fetch(apiUrl, {
+    const promises = texts.map(text => 
+        fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ model, prompt: text }),
-        });
-        if (!response.ok) {
-            const errorBody = await response.json().catch(() => ({ error: 'Unknown error structure' }));
-            const errorMessage = errorBody.error || await response.text();
-            throw new Error(`Ollama API error (${response.status}): ${errorMessage}`);
-        }
-        const data = await response.json();
-        if (data.error) throw new Error(`Ollama API error: ${data.error}`);
-        if (!data.embedding || !Array.isArray(data.embedding)) {
-            throw new Error(`Invalid embedding response from Ollama: ${JSON.stringify(data)}`);
-        }
-        embeddings.push(data.embedding);
-    }
-    return embeddings;
+        }).then(async response => {
+            if (!response.ok) {
+                const errorBody = await response.json().catch(() => ({ error: 'Unknown error structure' }));
+                const errorMessage = errorBody.error || await response.text();
+                throw new Error(`Ollama API error (${response.status}): ${errorMessage}`);
+            }
+            const data = await response.json();
+            if (data.error) throw new Error(`Ollama API error: ${data.error}`);
+            if (!data.embedding || !Array.isArray(data.embedding)) {
+                throw new Error(`Invalid embedding response from Ollama: ${JSON.stringify(data)}`);
+            }
+            return data.embedding;
+        })
+    );
+
+    return Promise.all(promises);
 }
+
 
 async function embedWithGoogleAI(texts: string[], config: RAGConfig): Promise<number[][]> {
     const { model } = config.embedding.config as { model: string };
-    const apiUrl = resolveUrl(config.apiEndpoints.googleAIEmbed, config);
+    const apiUrl = resolveUrl(config.apiEndpoints.googleAIEmbed, config, 'embedding');
     
     const response = await fetch(apiUrl, {
         method: 'POST',
@@ -163,7 +170,7 @@ async function embedWithGoogleAI(texts: string[], config: RAGConfig): Promise<nu
 
 async function upsertToPinecone(vectors: PineconeVector[], config: RAGConfig): Promise<void> {
     const { apiKey } = config.vectorDB.config as { apiKey: string };
-    const apiUrl = resolveUrl(config.apiEndpoints.pineconeUpsert, config);
+    const apiUrl = resolveUrl(config.apiEndpoints.pineconeUpsert, config, 'vectorDB');
     const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Api-Key': apiKey },
@@ -177,7 +184,7 @@ async function upsertToPinecone(vectors: PineconeVector[], config: RAGConfig): P
 
 async function queryPinecone(vector: number[], topK: number, config: RAGConfig): Promise<PineconeQueryResult[]> {
     const { apiKey } = config.vectorDB.config as { apiKey: string };
-    const apiUrl = resolveUrl(config.apiEndpoints.pineconeQuery, config);
+    const apiUrl = resolveUrl(config.apiEndpoints.pineconeQuery, config, 'vectorDB');
     const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Api-Key': apiKey },
@@ -283,7 +290,20 @@ export async function uploadDocument(
 
   try {
     const fileContent = await fileToText(file);
-    const chunks = chunkText(fileContent, { chunkSize: 750, chunkOverlap: 75 });
+    let chunks: string[];
+
+    if (file.type === 'application/vnd.system-analyzer.pre-chunked') {
+        try {
+            chunks = JSON.parse(fileContent);
+            if (!Array.isArray(chunks) || !chunks.every(c => typeof c === 'string')) {
+                throw new Error('Invalid pre-chunked file format.');
+            }
+        } catch (e) {
+            throw new Error('Failed to parse pre-chunked file. Expected a JSON array of strings.');
+        }
+    } else {
+        chunks = chunkText(fileContent, { chunkSize: 750, chunkOverlap: 75 });
+    }
     
     const contextualChunks = chunks.map(chunk => {
         if(metadataContext.machineName) {
@@ -292,24 +312,32 @@ export async function uploadDocument(
         return chunk;
     });
 
-    for (const chunk of contextualChunks) {
-        if (!chunk || chunk.trim() === '') {
-            console.warn("Skipping empty chunk for embedding.");
-            continue;
-        }
+    // Batch processing for improved performance
+    const batchSize = 10;
+    for (let i = 0; i < contextualChunks.length; i += batchSize) {
+        const batchChunks = contextualChunks.slice(i, i + batchSize).filter(c => c && c.trim() !== '');
+        if (batchChunks.length === 0) continue;
+
         try {
-            const embedding = await embedTexts([chunk], config);
-            if (!embedding || embedding.length === 0 || embedding[0].length === 0) {
-                 throw new Error(`Ollama returned an invalid or empty embedding. Please check the model name and Ollama server status.`);
+            const embeddings = await embedTexts(batchChunks, config);
+            if (!embeddings || embeddings.length !== batchChunks.length) {
+                throw new Error(`Embedding service returned an incorrect number of embeddings for a batch.`);
             }
-            const vector: PineconeVector = {
-                id: `${file.name}_${Date.now()}_${Math.random()}`,
-                values: embedding[0],
-                metadata: { text: chunk },
-            };
-            await upsertVectors([vector], config);
+
+            const vectors: PineconeVector[] = batchChunks.map((chunk, index) => {
+                 if (!embeddings[index] || embeddings[index].length === 0) {
+                     throw new Error(`Embedding service returned an empty embedding for chunk: ${chunk.substring(0, 100)}...`);
+                }
+                return {
+                    id: `${file.name}_${Date.now()}_${i + index}`,
+                    values: embeddings[index],
+                    metadata: { text: chunk },
+                }
+            });
+
+            await upsertVectors(vectors, config);
         } catch (error) {
-            console.error("Error embedding text chunk:", chunk, error);
+            console.error("Error processing a batch of chunks:", batchChunks, error);
             throw error; // Propagate the error up
         }
     }
