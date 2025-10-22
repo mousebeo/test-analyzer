@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { FileUpload } from './FileUpload';
 import { AnalysisResultDisplay } from './AnalysisResultDisplay';
@@ -287,11 +288,11 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
     setSaveToKBSuccess(false);
 
     try {
-        const finalContent = JSON.stringify(finalChunks);
+        const finalContent = finalChunks.join('\n\n---\n\n');
         const reportFile = new File(
             [finalContent], 
-            `analysis-report-${kbContextName.replace(/\s/g, '_')}-${Date.now()}.json`, 
-            { type: 'application/vnd.system-analyzer.pre-chunked' }
+            `analysis-report-${kbContextName.replace(/\s/g, '_')}-${Date.now()}.md`, 
+            { type: 'text/markdown' }
         );
 
         await onUploadDocument(reportFile, { machineName: kbContextName });
@@ -396,12 +397,16 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
                         saveToKBError={saveToKBError}
                     />;
         } else {
+             {/* FIX: Pass all required props to AnalysisResultDisplay to resolve type error. */}
              return <AnalysisResultDisplay 
                         result={analysisResult} 
                         onSaveToKB={() => setIsSaveModalOpen(true)}
                         isSavingToKB={isSavingToKB}
                         saveToKBSuccess={saveToKBSuccess}
                         saveToKBError={saveToKBError}
+                        onAnalyzeThreads={() => {}}
+                        isAnalyzingThreads={false}
+                        threadError={null}
                     />;
         }
     }

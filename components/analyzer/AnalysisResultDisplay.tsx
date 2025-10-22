@@ -1,30 +1,25 @@
+
 import React, { useState } from 'react';
 import { AnalysisResult } from '../../types';
 import { SummaryView } from './SummaryView';
 import { DetailTabs } from './DetailTabs';
 import { ApplicationsTab } from './tabs/ApplicationsTab';
+// FIX: Import SaveToKBButton to use in the component.
+import { SaveToKBButton } from './SaveToKBButton';
 
+// FIX: Updated props to match usage. Removed redundant state handling and added save to KB functionality.
 interface AnalysisResultDisplayProps {
-  isLoading: boolean;
-  error: string | null;
-  result: AnalysisResult | null;
+  result: AnalysisResult;
   onAnalyzeThreads: () => void;
   isAnalyzingThreads: boolean;
   threadError: string | null;
+  onSaveToKB: () => void;
+  isSavingToKB: boolean;
+  saveToKBSuccess: boolean;
+  saveToKBError: string | null;
 }
 
 type MainTab = 'summary' | 'applications';
-
-const LoadingState: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full bg-gray-800/50 rounded-lg p-8">
-    <svg className="animate-spin h-12 w-12 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg>
-    <p className="mt-4 text-lg font-semibold text-gray-300">Analyzing your reports...</p>
-    <p className="text-gray-400">This may take a moment.</p>
-  </div>
-);
 
 const WelcomeState: React.FC = () => (
     <div className="flex flex-col items-center justify-center h-full bg-gray-800 rounded-lg p-8 text-center">
@@ -37,26 +32,10 @@ const WelcomeState: React.FC = () => (
 );
 
 
-const ErrorState: React.FC<{ message: string }> = ({ message }) => (
-    <div className="flex flex-col items-center justify-center h-full bg-red-900/20 border border-red-500 rounded-lg p-8 text-center">
-         <span className="text-5xl mb-4">⚠️</span>
-        <h3 className="text-xl font-bold text-red-400 mb-2">Analysis Failed</h3>
-        <p className="text-red-300">{message}</p>
-    </div>
-);
-
-
-export const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ isLoading, error, result, onAnalyzeThreads, isAnalyzingThreads, threadError }) => {
+export const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result, onAnalyzeThreads, isAnalyzingThreads, threadError, onSaveToKB, isSavingToKB, saveToKBSuccess, saveToKBError }) => {
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('summary');
 
-  if (isLoading) {
-    return <LoadingState />;
-  }
-
-  if (error) {
-    return <ErrorState message={error} />;
-  }
-  
+  // FIX: Removed redundant loading, error, and welcome states as they are handled by the parent component.
   if (!result) {
       return <WelcomeState />;
   }
@@ -91,12 +70,21 @@ export const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ is
         {activeMainTab === 'summary' && (
             <div className="space-y-8 animate-fade-in">
                 <div>
-                    <h2 className="text-2xl font-bold text-cyan-400 mb-4">
-                        Overall Health Summary
-                        <span className="text-sm font-normal text-gray-500">
-                            ({result.analysisType}{result.role ? ` - ${result.role} View` : ''})
-                        </span>
-                    </h2>
+                    {/* FIX: Added wrapper and SaveToKBButton to align with AI view and fix prop error. */}
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-bold text-cyan-400">
+                            Overall Health Summary
+                            <span className="text-sm font-normal text-gray-500">
+                                ({result.analysisType}{result.role ? ` - ${result.role} View` : ''})
+                            </span>
+                        </h2>
+                        <SaveToKBButton
+                          onSave={onSaveToKB}
+                          isSaving={isSavingToKB}
+                          saveSuccess={saveToKBSuccess}
+                          saveError={saveToKBError}
+                        />
+                    </div>
                     <SummaryView summary={result.summary} keyMetrics={result.keyMetrics} />
                 </div>
                 <div>

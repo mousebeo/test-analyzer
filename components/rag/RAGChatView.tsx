@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { RAGConfig } from '../../types';
 import * as ragService from '../../services/ragService';
@@ -20,8 +19,11 @@ const checkIsConfigured = (config: RAGConfig): boolean => {
     switch (vectorDB.type) {
         case 'Pinecone':
         case 'Qdrant':
-        case 'Weaviate':
             dbConfigured = !!(vectorDB.config.apiKey && vectorDB.config.host);
+            break;
+        case 'Weaviate':
+            // Weaviate only requires host; API key is optional for local/unauthenticated instances
+            dbConfigured = !!vectorDB.config.host;
             break;
         case 'ChromaDB':
             dbConfigured = !!vectorDB.config.host;

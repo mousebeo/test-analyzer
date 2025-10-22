@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { RAGConfig } from '../../types';
 
@@ -10,9 +11,22 @@ export const RAGConfigView: React.FC<RAGConfigViewProps> = ({ config, onSave }) 
   const [localConfig, setLocalConfig] = useState<RAGConfig>(config);
   const [isSaved, setIsSaved] = useState(false);
 
+  // FIX: Updated handleChange to correctly update the nested configuration structure.
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setLocalConfig(prev => ({ ...prev, [name]: value }));
+    setLocalConfig(prev => {
+        const newConfig = JSON.parse(JSON.stringify(prev)); // Deep copy for safety
+        if (name === 'ollamaHost' && newConfig.embedding.type === 'Ollama') {
+            newConfig.embedding.config.host = value;
+        } else if (name === 'ollamaModel' && newConfig.embedding.type === 'Ollama') {
+            newConfig.embedding.config.model = value;
+        } else if (name === 'pineconeApiKey' && newConfig.vectorDB.type === 'Pinecone') {
+            newConfig.vectorDB.config.apiKey = value;
+        } else if (name === 'pineconeHost' && newConfig.vectorDB.type === 'Pinecone') {
+            newConfig.vectorDB.config.host = value;
+        }
+        return newConfig;
+    });
   };
 
   const handleSave = () => {
@@ -36,7 +50,8 @@ export const RAGConfigView: React.FC<RAGConfigViewProps> = ({ config, onSave }) 
                 type="text"
                 name="ollamaHost"
                 id="ollamaHost"
-                value={localConfig.ollamaHost}
+                // FIX: Correctly access nested config property.
+                value={localConfig.embedding.type === 'Ollama' ? localConfig.embedding.config.host : ''}
                 onChange={handleChange}
                 className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 sm:text-sm"
                 placeholder="e.g., http://localhost:11434"
@@ -48,7 +63,8 @@ export const RAGConfigView: React.FC<RAGConfigViewProps> = ({ config, onSave }) 
                 type="text"
                 name="ollamaModel"
                 id="ollamaModel"
-                value={localConfig.ollamaModel}
+                // FIX: Correctly access nested config property.
+                value={localConfig.embedding.type === 'Ollama' ? localConfig.embedding.config.model : ''}
                 onChange={handleChange}
                 className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 sm:text-sm"
                 placeholder="e.g., mxbai-embed-large"
@@ -68,7 +84,8 @@ export const RAGConfigView: React.FC<RAGConfigViewProps> = ({ config, onSave }) 
                         type="password"
                         name="pineconeApiKey"
                         id="pineconeApiKey"
-                        value={localConfig.pineconeApiKey}
+                        // FIX: Correctly access nested config property.
+                        value={localConfig.vectorDB.type === 'Pinecone' ? (localConfig.vectorDB.config as any).apiKey : ''}
                         onChange={handleChange}
                         className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 sm:text-sm"
                         placeholder="Enter your Pinecone API key"
@@ -80,7 +97,8 @@ export const RAGConfigView: React.FC<RAGConfigViewProps> = ({ config, onSave }) 
                         type="text"
                         name="pineconeHost"
                         id="pineconeHost"
-                        value={localConfig.pineconeHost}
+                        // FIX: Correctly access nested config property.
+                        value={localConfig.vectorDB.type === 'Pinecone' ? (localConfig.vectorDB.config as any).host : ''}
                         onChange={handleChange}
                         className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 sm:text-sm"
                         placeholder="e.g., https://my-index-12345.svc.host.pinecone.io"

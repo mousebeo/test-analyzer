@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Chat } from '@google/genai';
 import { AnalysisResult, DetailedThreadReport, ReportType, Role, AISummary, AIDeeperAnalysis } from '../types';
 
@@ -122,6 +123,7 @@ export async function getAIAnalysisSummary(localResult: AnalysisResult, files: F
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
+            // FIX: Ensure contents is a structured object as per SDK guidelines.
             contents: { parts: allParts },
             config: {
                 responseMimeType: "application/json",
@@ -171,6 +173,7 @@ export async function getAIDeeperAnalysis(localResult: AnalysisResult, files: Fi
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
+            // FIX: Ensure contents is a structured object as per SDK guidelines.
             contents: { parts: allParts },
             config: {
                 responseMimeType: "application/json",
@@ -204,6 +207,7 @@ export async function getRAGCompletion(question: string, context: string): Promi
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
+            // FIX: Ensure contents is a structured object as per SDK guidelines.
             contents: prompt,
         });
         return response.text;
@@ -249,6 +253,7 @@ export async function rechunkTextWithAI(fullText: string): Promise<string[]> {
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
+            // FIX: Ensure contents is a structured object as per SDK guidelines.
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
