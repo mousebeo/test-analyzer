@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { getAssistantChat } from '../services/geminiService';
 import * as ragService from '../services/ragService';
@@ -99,7 +100,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ context, config }) => 
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 bg-cyan-600 hover:bg-cyan-700 text-white rounded-full p-4 shadow-lg z-50 transition-transform hover:scale-110"
+                className="fixed bottom-6 right-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-4 shadow-lg z-50 transition-transform hover:scale-110"
                 aria-label="Open AI Assistant"
             >
                 <AssistantIcon />
@@ -108,14 +109,14 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ context, config }) => 
     }
 
     return (
-        <div className="fixed bottom-6 right-6 w-96 h-[60vh] bg-gray-800 border border-gray-700 rounded-lg shadow-2xl flex flex-col z-50 animate-fade-in">
+        <div className="fixed bottom-6 right-6 w-96 h-[60vh] bg-white border border-gray-200 rounded-lg shadow-2xl flex flex-col z-50 animate-fade-in">
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-900/50 rounded-t-lg">
-                <h3 className="font-semibold text-white flex items-center">
+            <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                <h3 className="font-semibold text-gray-800 flex items-center">
                     <AssistantIcon />
                     <span className="ml-2">AI Assistant "Sys"</span>
                 </h3>
-                <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">
+                <button onClick={() => setIsOpen(false)} className="text-gray-500 hover:text-gray-900">
                     <CloseIcon />
                 </button>
             </div>
@@ -124,13 +125,13 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ context, config }) => 
             <div className="flex-1 p-4 overflow-y-auto space-y-4">
                 {messages.map((msg) => (
                     <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs px-4 py-2 rounded-lg ${msg.sender === 'user' ? 'bg-cyan-700 text-white' : 'bg-gray-700 text-gray-200'}`}>
+                        <div className={`max-w-xs px-4 py-2 rounded-lg ${msg.sender === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'}`}>
                             <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                             {isLoading && msg.sender === 'ai' && msg.text === '' && (
                                <div className="flex items-center justify-center space-x-1 pt-2">
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
-                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse"></div>
+                                    <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
+                                    <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
+                                    <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse"></div>
                                 </div>
                             )}
                         </div>
@@ -140,18 +141,18 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ context, config }) => 
             </div>
 
             {/* Input */}
-            <div className="p-3 border-t border-gray-700">
-                <div className="flex items-center bg-gray-700 rounded-lg">
+            <div className="p-3 border-t border-gray-200">
+                <div className="flex items-center bg-gray-100 rounded-lg">
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         placeholder="Ask Sys anything..."
-                        className="flex-1 bg-transparent p-2 text-white placeholder-gray-400 focus:outline-none"
+                        className="flex-1 bg-transparent p-2 text-gray-900 placeholder-gray-500 focus:outline-none"
                         disabled={isLoading}
                     />
-                    <button onClick={handleSend} disabled={isLoading || !input.trim()} className="p-2 text-cyan-400 disabled:text-gray-500 hover:text-cyan-300 disabled:cursor-not-allowed">
+                    <button onClick={handleSend} disabled={isLoading || !input.trim()} className="p-2 text-indigo-600 disabled:text-gray-400 hover:text-indigo-500 disabled:cursor-not-allowed">
                         <SendIcon />
                     </button>
                 </div>

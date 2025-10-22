@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { FileUpload } from './analyzer/FileUpload';
 import { AnalysisResultDisplay } from './AnalysisResultDisplay';
@@ -9,8 +10,9 @@ import * as kubeConnectionService from '../services/kubeConnectionService';
 import { AnalysisResult, Role, KubeConnection, ReportType, AIDeeperAnalysis } from '../types';
 import { AIAnalysisSummaryView } from './analyzer/AIAnalysisSummaryView';
 import { AIDeeperAnalysisView } from './analyzer/AIDeeperAnalysisView';
-import { formatResultAsMarkdown } from '../services/reportFormatterService';
+import { formatResultIntoChunks } from '../services/reportFormatterService';
 import { SaveToKBModal } from './analyzer/SaveToKBModal';
+import { SaveToKBReviewModal } from './analyzer/SaveToKBReviewModal';
 
 
 interface AnalyzerViewProps {
@@ -21,10 +23,10 @@ interface AnalyzerViewProps {
 }
 
 const WelcomeState: React.FC = () => (
-    <div className="flex flex-col items-center justify-center h-full bg-gray-800 rounded-lg p-8 text-center">
+    <div className="flex flex-col items-center justify-center h-full bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
         <span className="text-6xl mb-4">🖥️</span>
-        <h2 className="text-2xl font-bold text-white mb-2">Welcome to the System Analyzer</h2>
-        <p className="text-gray-400 max-w-md">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to the System Analyzer</h2>
+        <p className="text-gray-500 max-w-md">
             Select a data source, configure your analysis, and get instant insights into your system's performance.
         </p>
     </div>
@@ -45,8 +47,11 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
   const [isAnalyzingDeeper, setIsAnalyzingDeeper] = useState<boolean>(false);
   const [deeperAnalysisError, setDeeperAnalysisError] = useState<string | null>(null);
 
-  // State for saving to knowledge base
+  // State for saving to knowledge base (multi-step)
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [chunksToReview, setChunksToReview] = useState<string[]>([]);
+  const [kbContextName, setKbContextName] = useState('');
   const [isSavingToKB, setIsSavingToKB] = useState(false);
   const [saveToKBError, setSaveToKBError] = useState<string | null>(null);
   const [saveToKBSuccess, setSaveToKBSuccess] = useState(false);
@@ -263,32 +268,42 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
     }
   }, [analysisResult, files, role]);
   
-  const handleConfirmSaveToKB = async (machineName: string) => {
-      if (!analysisResult || !machineName) return;
-      
-      setIsSavingToKB(true);
-      setSaveToKBError(null);
-      setSaveToKBSuccess(false);
+  const handleStartReview = (contextName: string) => {
+    if (!analysisResult) return;
+    
+    const chunks = formatResultIntoChunks(analysisResult);
+    
+    setKbContextName(contextName);
+    setChunksToReview(chunks);
+    setIsSaveModalOpen(false);
+    setIsReviewModalOpen(true);
+  };
 
-      try {
-          const markdownContent = formatResultAsMarkdown(analysisResult);
-          const reportFile = new File(
-              [markdownContent], 
-              `analysis-report-${machineName.replace(/\s/g, '_')}-${Date.now()}.md`, 
-              { type: 'text/markdown' }
-          );
+  const handleFinalSaveToKB = async (finalChunks: string[]) => {
+    setIsReviewModalOpen(false);
+    if (!kbContextName) return;
 
-          await onUploadDocument(reportFile, { machineName });
+    setIsSavingToKB(true);
+    setSaveToKBError(null);
+    setSaveToKBSuccess(false);
 
-          setSaveToKBSuccess(true);
-          setTimeout(() => setSaveToKBSuccess(false), 4000);
-      } catch (error) {
-          setSaveToKBError(error instanceof Error ? error.message : "An unknown error occurred while saving.");
-          setTimeout(() => setSaveToKBError(null), 5000);
-      } finally {
-          setIsSavingToKB(false);
-          setIsSaveModalOpen(false);
-      }
+    try {
+        const finalContent = finalChunks.join('\n\n---\n\n');
+        const reportFile = new File(
+            [finalContent], 
+            `analysis-report-${kbContextName.replace(/\s/g, '_')}-${Date.now()}.md`, 
+            { type: 'text/markdown' }
+        );
+
+        await onUploadDocument(reportFile, { machineName: kbContextName });
+        setSaveToKBSuccess(true);
+        setTimeout(() => setSaveToKBSuccess(false), 4000);
+    } catch (error) {
+        setSaveToKBError(error instanceof Error ? error.message : "An unknown error occurred while saving.");
+        setTimeout(() => setSaveToKBError(null), 5000);
+    } finally {
+        setIsSavingToKB(false);
+    }
   };
 
   const handleSaveConnection = () => {
@@ -345,22 +360,22 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
   const renderContent = () => {
     if (isLoading) {
       return (
-        <div className="flex flex-col items-center justify-center h-full bg-gray-800/50 rounded-lg p-8">
-            <svg className="animate-spin h-12 w-12 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <div className="flex flex-col items-center justify-center h-full bg-gray-50/50 rounded-lg p-8">
+            <svg className="animate-spin h-12 w-12 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p className="mt-4 text-lg font-semibold text-gray-300">Performing Analysis...</p>
+            <p className="mt-4 text-lg font-semibold text-gray-700">Performing Analysis...</p>
         </div>
       );
     }
 
     if(error) {
         return (
-             <div className="flex flex-col items-center justify-center h-full bg-red-900/20 border border-red-500 rounded-lg p-8 text-center">
+             <div className="flex flex-col items-center justify-center h-full bg-red-50 border border-red-200 rounded-lg p-8 text-center">
                 <span className="text-5xl mb-4">⚠️</span>
-                <h3 className="text-xl font-bold text-red-400 mb-2">Analysis Failed</h3>
-                <p className="text-red-300">{error}</p>
+                <h3 className="text-xl font-bold text-red-600 mb-2">Analysis Failed</h3>
+                <p className="text-red-500">{error}</p>
             </div>
         )
     }
@@ -400,8 +415,16 @@ export const AnalyzerView: React.FC<AnalyzerViewProps> = ({ initialResult, onCle
         {isSaveModalOpen && (
             <SaveToKBModal
                 onClose={() => setIsSaveModalOpen(false)}
-                onSave={handleConfirmSaveToKB}
-                isSaving={isSavingToKB}
+                onPreview={handleStartReview}
+            />
+        )}
+        {isReviewModalOpen && (
+            <SaveToKBReviewModal
+                 onClose={() => setIsReviewModalOpen(false)}
+                 onSave={handleFinalSaveToKB}
+                 isSaving={isSavingToKB}
+                 initialChunks={chunksToReview}
+                 contextName={kbContextName}
             />
         )}
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">

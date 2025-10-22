@@ -97,12 +97,12 @@ const KubernetesLogSource: React.FC<{ k8sProps: K8sProps }> = ({ k8sProps }) => 
     const Selector: React.FC<{ label: string; value: string; onChange: (val: string) => void; options: string[]; placeholder: string; disabled: boolean; }> = 
       ({ label, value, onChange, options, placeholder, disabled }) => (
         <div>
-            <label className="text-sm font-medium text-gray-400">{label}</label>
+            <label className="text-sm font-medium text-gray-500">{label}</label>
             <select
                 value={value}
                 onChange={e => onChange(e.target.value)}
                 disabled={disabled}
-                className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-1 block w-full bg-gray-100 border-gray-300 text-gray-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <option value="">{placeholder}</option>
                 {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -113,51 +113,51 @@ const KubernetesLogSource: React.FC<{ k8sProps: K8sProps }> = ({ k8sProps }) => 
     return (
         <div className="space-y-4">
              <div>
-                <label className="text-sm font-medium text-gray-400">Load Saved Configuration</label>
+                <label className="text-sm font-medium text-gray-500">Load Saved Configuration</label>
                 <div className="flex items-center space-x-2">
                     <select
                         value={selectedConnection}
                         onChange={(e) => handleLoadChange(e.target.value)}
-                        className="mt-1 block w-full bg-gray-700 border-gray-600 text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
+                        className="mt-1 block w-full bg-gray-100 border-gray-300 text-gray-900 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
                         <option value="">New Selection...</option>
                         {savedConnections.map(conn => <option key={conn.id} value={conn.id}>{conn.name}</option>)}
                     </select>
                     {selectedConnection && (
-                        <button onClick={(e) => handleDelete(e, selectedConnection)} className="mt-1 p-2 text-gray-400 hover:text-red-400 rounded-md">
+                        <button onClick={(e) => handleDelete(e, selectedConnection)} className="mt-1 p-2 text-gray-400 hover:text-red-600 rounded-md">
                             <TrashIcon className="h-5 w-5" />
                         </button>
                     )}
                 </div>
             </div>
 
-            <div className="border-b border-gray-700/50"></div>
+            <div className="border-b border-gray-200"></div>
 
             <div>
-                <label className="text-sm font-medium text-gray-400">Kubeconfig File</label>
-                {!isKubeconfigLoaded && !selectedConnection && <p className="text-xs text-yellow-400/80 mt-1">Select a config file to begin</p>}
-                 {!isKubeconfigLoaded && !!selectedConnection && <p className="text-xs text-yellow-400/80 mt-1">Select a config file to activate loaded selection</p>}
+                <label className="text-sm font-medium text-gray-500">Kubeconfig File</label>
+                {!isKubeconfigLoaded && !selectedConnection && <p className="text-xs text-yellow-600/80 mt-1">Select a config file to begin</p>}
+                 {!isKubeconfigLoaded && !!selectedConnection && <p className="text-xs text-yellow-600/80 mt-1">Select a config file to activate loaded selection</p>}
                 <div 
                     onClick={() => kubeconfigRef.current?.click()}
-                    className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer ${isKubeconfigLoaded ? 'border-green-500' : 'border-gray-600 hover:border-cyan-500'}`}
+                    className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer ${isKubeconfigLoaded ? 'border-green-500' : 'border-gray-300 hover:border-indigo-500'}`}
                 >
                     <div className="space-y-1 text-center">
-                         <svg xmlns="http://www.w3.org/2000/svg" className={`mx-auto h-8 w-8 ${isKubeconfigLoaded ? 'text-green-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        <p className="text-xs text-gray-400">{isKubeconfigLoaded ? "Config loaded" : "Click to select"}</p>
+                         <svg xmlns="http://www.w3.org/2000/svg" className={`mx-auto h-8 w-8 ${isKubeconfigLoaded ? 'text-green-500' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        <p className="text-xs text-gray-500">{isKubeconfigLoaded ? "Config loaded" : "Click to select"}</p>
                     </div>
                 </div>
                 <input type="file" ref={kubeconfigRef} onChange={e => onKubeconfigChange(e.target.files?.[0] || null)} className="hidden" accept=".yaml,.yml,.kubeconfig,config" />
             </div>
 
-            {k8sIsLoading && !isKubeconfigLoaded && <p className="text-sm text-center text-cyan-400">Loading namespaces...</p>}
+            {k8sIsLoading && !isKubeconfigLoaded && <p className="text-sm text-center text-indigo-600">Loading namespaces...</p>}
 
             <div className={`space-y-4 transition-opacity ${!isKubeconfigLoaded ? 'opacity-50' : ''}`}>
                 <Selector label="Namespace" value={selectedNamespace} onChange={onNamespaceChange} options={namespaces} placeholder="Select Namespace" disabled={!isKubeconfigLoaded} />
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Workload Type</label>
-                  <div className="flex bg-gray-700 rounded-lg p-1 mt-1">
+                  <label className="text-sm font-medium text-gray-500">Workload Type</label>
+                  <div className="flex bg-gray-200 rounded-lg p-1 mt-1">
                     {(['Deployment', 'StatefulSet'] as const).map(type => (
-                      <button key={type} onClick={() => onWorkloadTypeChange(type)} disabled={!selectedNamespace} className={`w-full text-center px-2 py-1 text-xs font-semibold rounded-md transition-colors duration-200 focus:outline-none ${workloadType === type ? 'bg-cyan-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600 disabled:opacity-50'}`}>{type}</button>
+                      <button key={type} onClick={() => onWorkloadTypeChange(type)} disabled={!selectedNamespace} className={`w-full text-center px-2 py-1 text-xs font-semibold rounded-md transition-colors duration-200 focus:outline-none ${workloadType === type ? 'bg-indigo-600 text-white shadow' : 'text-gray-600 hover:bg-gray-300 disabled:opacity-50'}`}>{type}</button>
                     ))}
                   </div>
                 </div>
@@ -170,14 +170,14 @@ const KubernetesLogSource: React.FC<{ k8sProps: K8sProps }> = ({ k8sProps }) => 
                 <button
                     onClick={onSaveConnection}
                     disabled={!selectedContainer}
-                    className="w-full bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-2 px-3 rounded-lg transition-colors duration-300 flex items-center justify-center"
+                    className="w-full bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-800 font-bold py-2 px-3 rounded-lg transition-colors duration-300 flex items-center justify-center"
                 >
                 Save Config
                 </button>
                 <button
                     onClick={onFetchK8sLogs}
                     disabled={!selectedContainer || isFetchingLogs}
-                    className="w-full bg-sky-600 hover:bg-sky-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-3 rounded-lg transition-all duration-300 flex items-center justify-center shadow-md"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-3 rounded-lg transition-all duration-300 flex items-center justify-center shadow-md"
                 >
                 {isFetchingLogs ? 'Fetching...' : 'Fetch Logs'}
                 </button>
@@ -195,17 +195,17 @@ const FileDropZone: React.FC<{onFilesChange: (files: File[]) => void, fileCount:
 
     return (
         <div 
-            className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-cyan-500 transition-colors h-full"
+            className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 transition-colors h-full"
             onClick={() => fileInputRef.current?.click()}
         >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h10a4 4 0 014 4v5a4 4 0 01-4 4h-2m-6-4l4-4m0 0l4 4m-4-4v12" /></svg>
-            <p className="mt-2 text-gray-400">Click to browse or drag files here</p>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h10a4 4 0 014 4v5a4 4 0 01-4 4h-2m-6-4l4-4m0 0l4 4m-4-4v12" /></svg>
+            <p className="mt-2 text-gray-500">Click to browse or drag files here</p>
             <input
                 type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden"
                 accept=".txt,.log,.json,.hprof,.phd,.html"
             />
             {fileCount > 0 && (
-                <p className="mt-4 text-sm text-green-400">{fileCount} file(s) ready for analysis.</p>
+                <p className="mt-4 text-sm text-green-600">{fileCount} file(s) ready for analysis.</p>
             )}
         </div>
     );
@@ -217,10 +217,10 @@ const AIToggle: React.FC<{ isEnabled: boolean; onChange: (enabled: boolean) => v
         <label htmlFor="ai-toggle" className="flex items-center cursor-pointer">
             <div className="relative">
                 <input id="ai-toggle" type="checkbox" className="sr-only" checked={isEnabled} onChange={(e) => onChange(e.target.checked)} />
-                <div className="block bg-gray-600 w-14 h-8 rounded-full"></div>
-                <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isEnabled ? 'translate-x-6 bg-cyan-400' : ''}`}></div>
+                <div className="block bg-gray-200 w-14 h-8 rounded-full"></div>
+                <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isEnabled ? 'translate-x-6 bg-indigo-600' : ''}`}></div>
             </div>
-            <div className="ml-3 text-gray-300 font-medium">
+            <div className="ml-3 text-gray-700 font-medium">
                 Enable AI Analysis <span className="text-xs text-gray-500">(slower, smarter)</span>
             </div>
         </label>
@@ -231,11 +231,11 @@ const RoleSelector: React.FC<{ selectedRole: Role; onRoleChange: (role: Role) =>
   const roles: Role[] = ['Executive', 'Administrator', 'Developer'];
   return (
       <div className="mt-4">
-           <div className="text-gray-300 font-medium mb-2 text-center">Select AI Persona</div>
-          <div className="flex bg-gray-700 rounded-lg p-1">
+           <div className="text-gray-700 font-medium mb-2 text-center">Select AI Persona</div>
+          <div className="flex bg-gray-200 rounded-lg p-1">
               {roles.map((role) => (
                   <button key={role} onClick={() => onRoleChange(role)}
-                      className={`w-full text-center px-2 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none ${selectedRole === role ? 'bg-cyan-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}>
+                      className={`w-full text-center px-2 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none ${selectedRole === role ? 'bg-indigo-600 text-white shadow' : 'text-gray-600 hover:bg-gray-300'}`}>
                       {role}
                   </button>
               ))}
@@ -251,16 +251,16 @@ const ReportTypeSelector: React.FC<{
     const types: ReportType[] = ['TIBCO HTML', 'Generic Log'];
     return (
         <div className="mt-4">
-             <div className="text-gray-300 font-medium mb-2 text-center">Select Report Type</div>
-            <div className="flex bg-gray-700 rounded-lg p-1">
+             <div className="text-gray-700 font-medium mb-2 text-center">Select Report Type</div>
+            <div className="flex bg-gray-200 rounded-lg p-1">
                 {types.map((type) => (
                     <button
                         key={type}
                         onClick={() => onTypeChange(type)}
                         className={`w-full text-center px-2 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none ${
                             selectedType === type
-                                ? 'bg-cyan-600 text-white shadow'
-                                : 'text-gray-300 hover:bg-gray-600'
+                                ? 'bg-indigo-600 text-white shadow'
+                                : 'text-gray-600 hover:bg-gray-300'
                         }`}
                     >
                         {type}
@@ -278,17 +278,17 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze
   const TabButton: React.FC<{ label: string; icon: React.ReactNode; tabName: 'file' | 'k8s'; }> = ({ label, icon, tabName }) => (
     <button
         onClick={() => setActiveTab(tabName)}
-        className={`flex-1 flex items-center justify-center p-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tabName ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-gray-400 hover:text-white'}`}
+        className={`flex-1 flex items-center justify-center p-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tabName ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
     >
         {icon}{label}
     </button>
   );
   
   return (
-    <div className="bg-gray-800 p-6 rounded-lg shadow-lg h-full flex flex-col">
-      <h2 className="text-xl font-semibold mb-4 text-cyan-400">1. Select Data Source</h2>
+    <div className="bg-white p-6 rounded-lg shadow-lg h-full flex flex-col border border-gray-200">
+      <h2 className="text-xl font-semibold mb-4 text-indigo-600">1. Select Data Source</h2>
       
-      <div className="flex border-b border-gray-700 mb-4">
+      <div className="flex border-b border-gray-200 mb-4">
           <TabButton label="Upload Files" icon={<UploadIcon/>} tabName="file" />
           <TabButton label="Kubernetes" icon={<KubeIcon/>} tabName="k8s" />
       </div>
@@ -298,8 +298,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze
         {activeTab === 'k8s' && <KubernetesLogSource k8sProps={k8sProps} />}
       </div>
       
-      <div className="mt-4 pt-4 border-t border-gray-700">
-        <h2 className="text-xl font-semibold mb-4 text-cyan-400">2. Configure Analysis</h2>
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <h2 className="text-xl font-semibold mb-4 text-indigo-600">2. Configure Analysis</h2>
         <AIToggle isEnabled={isAIEnabled} onChange={onIsAIEnabledChange} />
         <ReportTypeSelector selectedType={reportType} onTypeChange={onReportTypeChange} />
         {isAIEnabled && (
@@ -308,7 +308,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze
         <button
             onClick={onAnalyze}
             disabled={isLoading || fileCount === 0}
-            className="mt-6 w-full bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-cyan-500/50"
+            className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-indigo-500/50"
         >
             {isLoading ? (
             <>

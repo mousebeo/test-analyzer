@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { RAGConfig } from '../../types';
 import * as ragService from '../../services/ragService';
@@ -12,6 +13,36 @@ interface Message {
 interface RAGChatViewProps {
   config: RAGConfig;
 }
+
+const checkIsConfigured = (config: RAGConfig): boolean => {
+    const { vectorDB, embedding } = config;
+    let dbConfigured = false;
+    switch (vectorDB.type) {
+        case 'Pinecone':
+        case 'Qdrant':
+        case 'Weaviate':
+            dbConfigured = !!(vectorDB.config.apiKey && vectorDB.config.host);
+            break;
+        case 'ChromaDB':
+            dbConfigured = !!vectorDB.config.host;
+            break;
+        default:
+             // A non-implemented DB type is considered not configured
+            dbConfigured = false;
+    }
+
+    let embeddingConfigured = false;
+    switch (embedding.type) {
+        case 'Ollama':
+            embeddingConfigured = !!(embedding.config.host && embedding.config.model);
+            break;
+        case 'GoogleAI':
+            embeddingConfigured = !!(embedding.config.apiKey && embedding.config.model);
+            break;
+    }
+    return dbConfigured && embeddingConfigured;
+};
+
 
 export const RAGChatView: React.FC<RAGChatViewProps> = ({ config }) => {
   const [messages, setMessages] = useState<Message[]>([
@@ -48,36 +79,36 @@ export const RAGChatView: React.FC<RAGChatViewProps> = ({ config }) => {
     }
   };
 
-  const isConfigured = config.pineconeApiKey && config.pineconeHost && config.ollamaHost && config.ollamaModel;
+  const isConfigured = checkIsConfigured(config);
 
   if (!isConfigured) {
       return (
-          <div className="text-center bg-yellow-900/30 border border-yellow-700 p-6 rounded-lg">
-              <h3 className="text-xl font-semibold text-yellow-300">Configuration Needed</h3>
-              <p className="text-yellow-400 mt-2">
-                  Please set your API endpoints and keys in the 'Configuration' tab before using the chat.
+          <div className="text-center bg-yellow-50 border border-yellow-300 p-6 rounded-lg">
+              <h3 className="text-xl font-semibold text-yellow-800">Configuration Needed</h3>
+              <p className="text-yellow-700 mt-2">
+                  Please set your API endpoints and keys in the 'Configuration' tab for your selected providers before using the chat.
               </p>
           </div>
       );
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg shadow-lg flex flex-col h-[70vh]">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col h-[70vh]">
       <div className="flex-1 p-4 overflow-y-auto space-y-4">
         {messages.map(msg => (
           <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xl px-4 py-2 rounded-lg shadow ${msg.sender === 'user' ? 'bg-cyan-700 text-white' : 'bg-gray-700 text-gray-200'}`}>
+            <div className={`max-w-xl px-4 py-2 rounded-lg shadow ${msg.sender === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
               <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
             </div>
           </div>
         ))}
         {isLoading && (
             <div className="flex justify-start">
-                 <div className="max-w-xl px-4 py-2 rounded-lg shadow bg-gray-700 text-gray-200">
+                 <div className="max-w-xl px-4 py-2 rounded-lg shadow bg-gray-100 text-gray-800">
                     <div className="flex items-center justify-center space-x-1 pt-2">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
                     </div>
                 </div>
             </div>
@@ -85,18 +116,18 @@ export const RAGChatView: React.FC<RAGChatViewProps> = ({ config }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t border-gray-700">
-        <div className="flex items-center bg-gray-700 rounded-lg">
+      <div className="p-4 border-t border-gray-200">
+        <div className="flex items-center bg-gray-100 rounded-lg">
           <input
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSend()}
             placeholder="Ask a question based on your uploaded documents..."
-            className="flex-1 bg-transparent p-3 text-white placeholder-gray-400 focus:outline-none"
+            className="flex-1 bg-transparent p-3 text-gray-900 placeholder-gray-500 focus:outline-none"
             disabled={isLoading}
           />
-          <button onClick={handleSend} disabled={isLoading || !input.trim()} className="p-3 text-cyan-400 disabled:text-gray-500 hover:text-cyan-300 disabled:cursor-not-allowed">
+          <button onClick={handleSend} disabled={isLoading || !input.trim()} className="p-3 text-indigo-600 disabled:text-gray-400 hover:text-indigo-500 disabled:cursor-not-allowed">
             <SendIcon />
           </button>
         </div>

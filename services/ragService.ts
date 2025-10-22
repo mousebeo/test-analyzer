@@ -1,33 +1,63 @@
-import { RAGConfig, IndexedDocument, PineconeVector, PineconeQueryResult } from '../types';
+
+import { RAGConfig, IndexedDocument, PineconeVector, PineconeQueryResult, VectorDBConfig, EmbeddingConfig, APIEndpoints } from '../types';
 import { chunkText } from './textUtils';
 import * as geminiService from './geminiService';
 
 const RAG_CONFIG_KEY = 'ragConfig';
 const INDEXED_DOCS_KEY = 'indexedDocuments';
 
+// --- Default Configurations ---
+export const defaultVectorDBConfig = (type: RAGConfig['vectorDB']['type']): VectorDBConfig => {
+    switch (type) {
+        case 'Pinecone': return { type, config: { apiKey: '', host: '' } };
+        case 'Qdrant': return { type, config: { apiKey: '', host: '' } };
+        case 'Weaviate': return { type, config: { apiKey: '', host: '' } };
+        case 'ChromaDB': return { type, config: { host: '' } };
+        default: return { type: 'Pinecone', config: { apiKey: '', host: '' } };
+    }
+};
+
+export const defaultEmbeddingConfig = (type: RAGConfig['embedding']['type']): EmbeddingConfig => {
+    switch (type) {
+        case 'Ollama': return { type, config: { host: 'http://localhost:11434', model: 'mxbai-embed-large' } };
+        case 'GoogleAI': return { type, config: { apiKey: '', model: 'embedding-001' } };
+        default: return { type: 'Ollama', config: { host: 'http://localhost:11434', model: 'mxbai-embed-large' } };
+    }
+};
+
+const defaultAPIEndpoints: APIEndpoints = {
+    ollamaEmbed: '{host}/api/embeddings',
+    googleAIEmbed: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:batchEmbedContents?key={apiKey}',
+    pineconeUpsert: '{host}/vectors/upsert',
+    pineconeQuery: '{host}/query',
+};
+
 // --- Configuration Management ---
 export function getConfig(): RAGConfig {
   try {
     const configJson = localStorage.getItem(RAG_CONFIG_KEY);
     if (configJson) {
-      return JSON.parse(configJson);
+      const parsedConfig = JSON.parse(configJson);
+      // Ensure apiEndpoints exists and has all keys, merging with defaults if needed.
+      parsedConfig.apiEndpoints = { ...defaultAPIEndpoints, ...parsedConfig.apiEndpoints };
+      return parsedConfig;
     }
   } catch (error) {
     console.error("Failed to retrieve RAG config:", error);
   }
-  // Default values provided by the user
+  // Return a fresh default if nothing is stored
   return {
-    pineconeApiKey: 'pcsk_2mm6om_McxDT5UZd1N1dtpUbwbEw5ESERSGtxduMffEePCbMfa5XzW7RFxUPxSbe4JAZum',
-    pineconeHost: 'https://myindex-g2dj8mh.svc.aped-4627-b74a.pinecone.io',
-    ollamaHost: 'https://milana-hydrokinetic-undeviatingly.ngrok-free.dev',
-    ollamaModel: 'mxbai-embed-large',
+    vectorDB: defaultVectorDBConfig('Pinecone'),
+    embedding: defaultEmbeddingConfig('Ollama'),
+    apiEndpoints: defaultAPIEndpoints,
   };
 }
 
 export function saveConfig(config: RAGConfig): void {
   try {
     localStorage.setItem(RAG_CONFIG_KEY, JSON.stringify(config));
-  } catch (error) {
+  } catch (error)
+ {
     console.error("Failed to save RAG config:", error);
   }
 }
@@ -52,78 +82,179 @@ function saveIndexedDocuments(documents: IndexedDocument[]): void {
   }
 }
 
-// --- Core Vector DB operations ---
+// --- Helper to resolve URL placeholders ---
+function resolveUrl(template: string, config: RAGConfig): string {
+    let url = template;
+    const { vectorDB, embedding } = config;
 
-async function embedTexts(texts: string[], config: RAGConfig): Promise<number[][]> {
+    if (vectorDB.type === 'Pinecone' || vectorDB.type === 'Qdrant' || vectorDB.type === 'Weaviate' || vectorDB.type === 'ChromaDB') {
+        url = url.replace('{host}', vectorDB.config.host || '');
+    }
+    if (vectorDB.type === 'Pinecone' || vectorDB.type === 'Qdrant' || vectorDB.type === 'Weaviate') {
+         url = url.replace('{apiKey}', vectorDB.config.apiKey || '');
+    }
+
+    if (embedding.type === 'Ollama') {
+         url = url.replace('{host}', embedding.config.host || '');
+         url = url.replace('{model}', embedding.config.model || '');
+    }
+    if (embedding.type === 'GoogleAI') {
+        url = url.replace('{apiKey}', embedding.config.apiKey || '');
+        url = url.replace('{model}', embedding.config.model || '');
+    }
+
+    return url;
+}
+
+// --- Embedding Implementations ---
+
+async function embedWithOllama(texts: string[], config: RAGConfig): Promise<number[][]> {
+    const { model } = config.embedding.config as { model: string };
+    const apiUrl = resolveUrl(config.apiEndpoints.ollamaEmbed, config);
+
     const embeddings: number[][] = [];
     for (const text of texts) {
-        try {
-            const response = await fetch(`${config.ollamaHost}/api/embeddings`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: config.ollamaModel,
-                    prompt: text,
-                }),
-            });
-            if (!response.ok) throw new Error(`Ollama API error: ${response.statusText}`);
-            const data = await response.json();
-            embeddings.push(data.embedding);
-        } catch (error) {
-            console.error("Error embedding text chunk:", text.substring(0, 100), error);
-            throw new Error("Failed to generate embeddings via Ollama. Check host/model config and ensure the service is running.");
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, prompt: text }),
+        });
+        if (!response.ok) {
+            const errorBody = await response.json().catch(() => ({ error: 'Unknown error structure' }));
+            const errorMessage = errorBody.error || await response.text();
+            throw new Error(`Ollama API error (${response.status}): ${errorMessage}`);
         }
+        const data = await response.json();
+        if (data.error) throw new Error(`Ollama API error: ${data.error}`);
+        if (!data.embedding || !Array.isArray(data.embedding)) {
+            throw new Error(`Invalid embedding response from Ollama: ${JSON.stringify(data)}`);
+        }
+        embeddings.push(data.embedding);
     }
     return embeddings;
 }
 
+async function embedWithGoogleAI(texts: string[], config: RAGConfig): Promise<number[][]> {
+    const { model } = config.embedding.config as { model: string };
+    const apiUrl = resolveUrl(config.apiEndpoints.googleAIEmbed, config);
+    
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            requests: texts.map(text => ({
+                model: `models/${model}`,
+                content: { parts: [{ text }] }
+            }))
+        }),
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Google AI Embedding API error (${response.status}): ${errorText}`);
+    }
+    const data = await response.json();
+    if (!data.embeddings || !Array.isArray(data.embeddings)) {
+        throw new Error("Google AI returned an invalid embedding response.");
+    }
+    return data.embeddings.map((e: { values: number[] }) => e.values);
+}
+
+// --- Vector DB Implementations ---
+
 async function upsertToPinecone(vectors: PineconeVector[], config: RAGConfig): Promise<void> {
-    try {
-        const response = await fetch(`${config.pineconeHost}/vectors/upsert`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Api-Key': config.pineconeApiKey,
-            },
-            body: JSON.stringify({ vectors }),
-        });
-        if (!response.ok) {
-             const errorText = await response.text();
-             throw new Error(`Pinecone API error: ${response.statusText} - ${errorText}`);
-        }
-    } catch (error) {
-        console.error("Error upserting to Pinecone:", error);
-        throw new Error("Failed to upsert vectors to Pinecone. Check API key and host configuration.");
+    const { apiKey } = config.vectorDB.config as { apiKey: string };
+    const apiUrl = resolveUrl(config.apiEndpoints.pineconeUpsert, config);
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Api-Key': apiKey },
+        body: JSON.stringify({ vectors }),
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Pinecone API error: ${response.statusText} - ${errorText}`);
     }
 }
 
 async function queryPinecone(vector: number[], topK: number, config: RAGConfig): Promise<PineconeQueryResult[]> {
+    const { apiKey } = config.vectorDB.config as { apiKey: string };
+    const apiUrl = resolveUrl(config.apiEndpoints.pineconeQuery, config);
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Api-Key': apiKey },
+        body: JSON.stringify({ vector, topK, includeMetadata: true, includeValues: false }),
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Pinecone query error: ${response.statusText} - ${errorText}`);
+    }
+    const data = await response.json();
+    return data.matches || [];
+}
+
+// --- Dispatcher Functions ---
+
+async function embedTexts(texts: string[], config: RAGConfig): Promise<number[][]> {
     try {
-         const response = await fetch(`${config.pineconeHost}/query`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Api-Key': config.pineconeApiKey,
-            },
-            body: JSON.stringify({
-                vector,
-                topK,
-                includeMetadata: true,
-                includeValues: false,
-            }),
-        });
-        if (!response.ok) {
-             const errorText = await response.text();
-             throw new Error(`Pinecone query error: ${response.statusText} - ${errorText}`);
+        if (texts.some(t => !t || typeof t !== 'string' || t.trim() === '')) {
+            throw new Error("One of the text chunks to embed is empty or invalid.");
         }
-        const data = await response.json();
-        return data.matches || [];
-    } catch(error) {
-        console.error("Error querying Pinecone:", error);
-        throw new Error("Failed to query Pinecone. Check API key and host configuration.");
+        switch (config.embedding.type) {
+            case 'Ollama':
+                return await embedWithOllama(texts, config);
+            case 'GoogleAI':
+                return await embedWithGoogleAI(texts, config);
+            default:
+                throw new Error(`Unsupported embedding provider: ${(config.embedding as any).type}`);
+        }
+    } catch (error) {
+        console.error("Error during embedding:", error);
+        if (error instanceof Error) {
+            throw new Error(`Failed to generate embeddings via ${config.embedding.type}. ${error.message}`);
+        }
+        throw new Error("An unknown error occurred during embedding generation.");
     }
 }
 
+async function upsertVectors(vectors: PineconeVector[], config: RAGConfig): Promise<void> {
+    if (vectors.some(v => !v.values || v.values.length === 0)) {
+        const problematicChunkIndex = vectors.findIndex(v => !v.values || v.values.length === 0);
+        const problematicChunkText = vectors[problematicChunkIndex]?.metadata?.text.substring(0, 200) + '...';
+        throw new Error(`Cannot upsert vectors with empty values. Embedding generation likely failed for a chunk starting with: "${problematicChunkText}"`);
+    }
+    try {
+        switch (config.vectorDB.type) {
+            case 'Pinecone':
+                return await upsertToPinecone(vectors, config);
+            // Add other DB implementations here
+            default:
+                throw new Error(`Vector DB type "${config.vectorDB.type}" is not yet implemented.`);
+        }
+    } catch(error) {
+        console.error("Error upserting vectors:", error);
+        if (error instanceof Error) {
+            throw new Error(`Failed to upsert vectors to ${config.vectorDB.type}. ${error.message}`);
+        }
+        throw new Error("An unknown error occurred while upserting vectors.");
+    }
+}
+
+async function queryVectors(vector: number[], topK: number, config: RAGConfig): Promise<PineconeQueryResult[]> {
+     try {
+        switch (config.vectorDB.type) {
+            case 'Pinecone':
+                return await queryPinecone(vector, topK, config);
+            // Add other DB implementations here
+            default:
+                throw new Error(`Vector DB type "${config.vectorDB.type}" is not yet implemented.`);
+        }
+    } catch(error) {
+        console.error("Error querying vectors:", error);
+        if (error instanceof Error) {
+            throw new Error(`Failed to query knowledge base from ${config.vectorDB.type}. ${error.message}`);
+        }
+        throw new Error("An unknown error occurred while querying the knowledge base.");
+    }
+}
 
 // --- High-level functions for UI ---
 
@@ -135,7 +266,6 @@ async function fileToText(file: File): Promise<string> {
         reader.onerror = (error) => reject(error);
     });
 }
-
 
 export async function uploadDocument(
   file: File,
@@ -157,33 +287,45 @@ export async function uploadDocument(
     
     const contextualChunks = chunks.map(chunk => {
         if(metadataContext.machineName) {
-            return `[Machine: ${metadataContext.machineName} Date: ${new Date().toISOString()}] ${chunk}`;
+            return `[Machine: ${metadataContext.machineName} Date: ${new Date().toISOString()}] ---\n\n${chunk}`;
         }
         return chunk;
     });
 
-    const embeddings = await embedTexts(contextualChunks, config);
-    
-    const vectors: PineconeVector[] = embeddings.map((embedding, i) => ({
-        id: `${file.name}_${Date.now()}_${i}`,
-        values: embedding,
-        metadata: { text: contextualChunks[i] },
-    }));
-
-    await upsertToPinecone(vectors, config);
+    for (const chunk of contextualChunks) {
+        if (!chunk || chunk.trim() === '') {
+            console.warn("Skipping empty chunk for embedding.");
+            continue;
+        }
+        try {
+            const embedding = await embedTexts([chunk], config);
+            if (!embedding || embedding.length === 0 || embedding[0].length === 0) {
+                 throw new Error(`Ollama returned an invalid or empty embedding. Please check the model name and Ollama server status.`);
+            }
+            const vector: PineconeVector = {
+                id: `${file.name}_${Date.now()}_${Math.random()}`,
+                values: embedding[0],
+                metadata: { text: chunk },
+            };
+            await upsertVectors([vector], config);
+        } catch (error) {
+            console.error("Error embedding text chunk:", chunk, error);
+            throw error; // Propagate the error up
+        }
+    }
 
   } catch (error) {
     console.error(`Failed to process document ${file.name}:`, error);
     finalStatus = 'error';
-  }
-
-  // Update the document with the final status
-  const finalDocs = getIndexedDocuments();
-  const docToUpdate = finalDocs.find(d => d.id === newDoc.id);
-  if (docToUpdate) {
-    docToUpdate.status = finalStatus;
-    saveIndexedDocuments(finalDocs);
-    updateCallback(finalDocs);
+    throw error;
+  } finally {
+    const finalDocs = getIndexedDocuments();
+    const docToUpdate = finalDocs.find(d => d.id === newDoc.id);
+    if (docToUpdate) {
+      docToUpdate.status = finalStatus;
+      saveIndexedDocuments(finalDocs);
+      updateCallback(finalDocs);
+    }
   }
 }
 
@@ -191,25 +333,15 @@ export async function askQuestion(question: string, config: RAGConfig): Promise<
     try {
         if (!question.trim()) return "Please ask a question.";
         
-        // 1. Embed the user's question
         const [questionEmbedding] = await embedTexts([question], config);
-        if (!questionEmbedding) {
-            throw new Error("Could not generate an embedding for the question.");
-        }
+        if (!questionEmbedding) throw new Error("Could not generate an embedding for the question.");
 
-        // 2. Query Pinecone to find relevant text chunks
-        const queryResults = await queryPinecone(questionEmbedding, 5, config);
-        
+        const queryResults = await queryVectors(questionEmbedding, 5, config);
         if (queryResults.length === 0) {
             return "I couldn't find any relevant information in the knowledge base to answer that question.";
         }
 
-        // 3. Assemble the context from the results
-        const context = queryResults
-            .map(result => result.metadata.text)
-            .join("\n\n---\n\n");
-
-        // 4. Call Gemini with the context and question
+        const context = queryResults.map(result => result.metadata.text).join("\n\n---\n\n");
         const answer = await geminiService.getRAGCompletion(question, context);
         return answer;
 

@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface SaveToKBButtonProps {
@@ -32,10 +33,10 @@ export const SaveToKBButton: React.FC<SaveToKBButtonProps> = ({ onSave, isSaving
             <button
                 onClick={onSave}
                 disabled={isSaving || saveSuccess}
-                className={`bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center
+                className={`bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center border border-indigo-200
                     ${isSaving || saveSuccess ? 'cursor-not-allowed' : ''}
-                    ${saveSuccess ? 'bg-green-600 hover:bg-green-600' : ''}
-                    ${saveError ? 'bg-red-600 hover:bg-red-600' : ''}
+                    ${saveSuccess ? 'bg-green-100 hover:bg-green-100 text-green-700 border-green-200' : ''}
+                    ${saveError ? 'bg-red-100 hover:bg-red-100 text-red-700 border-red-200' : ''}
                 `}
             >
                 {isSaving && <SpinnerIcon />}
@@ -43,7 +44,7 @@ export const SaveToKBButton: React.FC<SaveToKBButtonProps> = ({ onSave, isSaving
                 {!isSaving && !saveSuccess && <SaveIcon />}
                 {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save to Knowledge Base'}
             </button>
-            {saveError && <p className="text-xs text-red-400 mt-1.5 absolute w-full text-center">{saveError}</p>}
+            {saveError && <p className="text-xs text-red-600 mt-1.5 absolute w-full text-center">{saveError}</p>}
         </div>
     );
 };

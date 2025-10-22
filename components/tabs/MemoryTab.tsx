@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { MemoryAnalysis, MemoryUsage } from '../../types';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -17,8 +18,8 @@ const formatBytes = (bytes: number) => {
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-gray-900 border border-gray-700 p-2 rounded-md shadow-lg">
-          <p className="label text-cyan-400">{`${label}`}</p>
+        <div className="bg-white border border-gray-200 p-2 rounded-md shadow-lg">
+          <p className="label text-indigo-600">{`${label}`}</p>
           {payload.map((pld: any) => (
              <p key={pld.dataKey} style={{ color: pld.fill }}>{`${pld.name}: ${formatBytes(pld.value)}`}</p>
           ))}
@@ -54,13 +55,13 @@ export const MemoryTab: React.FC<MemoryTabProps> = ({ data }) => {
                 data={chartData}
                 margin={{ top: 5, right: 20, left: 30, bottom: 5 }}
             >
-                <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-                <XAxis dataKey="name" stroke="#A0AEC0"/>
-                <YAxis stroke="#A0AEC0" tickFormatter={formatBytes} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" stroke="#6b7280"/>
+                <YAxis stroke="#6b7280" tickFormatter={formatBytes} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Bar dataKey="used" fill="#2DD4BF" name="Used"/>
-                <Bar dataKey="committed" fill="#38BDF8" name="Committed" />
+                <Bar dataKey="used" fill="#10B981" name="Used"/>
+                <Bar dataKey="committed" fill="#3B82F6" name="Committed" />
                 <Bar dataKey="max" fill="#818CF8" name="Max"/>
             </BarChart>
         </ResponsiveContainer>

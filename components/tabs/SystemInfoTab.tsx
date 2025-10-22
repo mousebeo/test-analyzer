@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { SystemInfo } from '../../types';
 
@@ -6,9 +7,9 @@ interface SystemInfoTabProps {
 }
 
 const InfoRow: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
-    <div className="flex justify-between items-center py-3 border-b border-gray-700">
-        <dt className="text-sm font-medium text-gray-400">{label}</dt>
-        <dd className="mt-1 text-sm text-gray-200 sm:mt-0 sm:col-span-2 font-mono">{value}</dd>
+    <div className="flex justify-between items-center py-3 border-b border-gray-200">
+        <dt className="text-sm font-medium text-gray-500">{label}</dt>
+        <dd className="mt-1 text-sm text-gray-800 sm:mt-0 sm:col-span-2 font-mono">{value}</dd>
     </div>
 );
 

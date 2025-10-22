@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, AnalysisResult, IndexedDocument, RAGConfig } from '../types';
-import { DashboardIcon, AnalyzerIcon, UsersIcon, LogoutIcon, KnowledgeBaseIcon } from '../assets/icons';
+import { DashboardIcon, AnalyzerIcon, UsersIcon, LogoutIcon, KnowledgeBaseIcon, SettingsIcon } from '../assets/icons';
 import { DashboardView } from './DashboardView';
 import { AnalyzerView } from './AnalyzerView';
 import { UserManagementView } from './UserManagementView';
@@ -8,13 +9,14 @@ import { AIAssistant } from './AIAssistant';
 import * as sessionService from '../services/sessionService';
 import * as ragService from '../services/ragService';
 import { RAGView } from './RAGView';
+import { ConfigurationView } from './ConfigurationView';
 
 interface MainLayoutProps {
   user: User;
   onLogout: () => void;
 }
 
-type View = 'dashboard' | 'analyzer' | 'users' | 'rag';
+type View = 'dashboard' | 'analyzer' | 'users' | 'rag' | 'settings';
 
 const NavItem: React.FC<{
     icon: React.ReactElement;
@@ -26,8 +28,8 @@ const NavItem: React.FC<{
         onClick={onClick}
         className={`flex items-center w-full px-4 py-3 text-left transition-colors duration-200 ${
             isActive
-                ? 'bg-cyan-500/20 text-cyan-300'
-                : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+                ? 'bg-indigo-100 text-indigo-600'
+                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
         }`}
     >
         {icon}
@@ -100,21 +102,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
                 return <RAGView 
                             documents={documents}
                             config={ragConfig}
-                            onSaveConfig={handleSaveRagConfig}
                             onUpload={handleUploadDocument}
                             onDelete={handleDeleteDocument}
                         />;
+            case 'settings':
+                return <ConfigurationView config={ragConfig} onSave={handleSaveRagConfig} />;
             default:
                 return <DashboardView user={user} setActiveView={handleViewChange} onLoadSession={handleLoadSession} />;
         }
     };
 
     return (
-        <div className="flex h-screen bg-gray-900 text-gray-100">
+        <div className="flex h-screen bg-gray-50 text-gray-800">
             {/* Sidebar */}
-            <aside className="w-64 flex-shrink-0 bg-gray-800 flex flex-col">
-                <div className="h-20 flex items-center justify-center px-4 border-b border-gray-700">
-                    <h1 className="text-xl font-bold text-cyan-400 text-center">
+            <aside className="w-64 flex-shrink-0 bg-white flex flex-col border-r border-gray-200">
+                <div className="h-20 flex items-center justify-center px-4 border-b border-gray-200">
+                    <h1 className="text-xl font-bold text-indigo-600 text-center">
                         <span className="text-3xl">🤖</span> Analyzer
                     </h1>
                 </div>
@@ -123,11 +126,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
                     <NavItem icon={<AnalyzerIcon />} label="System Analyzer" isActive={activeView === 'analyzer'} onClick={() => handleViewChange('analyzer')} />
                     <NavItem icon={<KnowledgeBaseIcon />} label="Doc Intelligence" isActive={activeView === 'rag'} onClick={() => handleViewChange('rag')} />
                     <NavItem icon={<UsersIcon />} label="User Management" isActive={activeView === 'users'} onClick={() => handleViewChange('users')} />
+                    <NavItem icon={<SettingsIcon />} label="Configuration" isActive={activeView === 'settings'} onClick={() => handleViewChange('settings')} />
                 </nav>
-                <div className="p-4 border-t border-gray-700">
+                <div className="p-4 border-t border-gray-200">
                      <button
                         onClick={onLogout}
-                        className="flex items-center w-full px-4 py-3 text-left text-gray-400 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-200 rounded-md"
+                        className="flex items-center w-full px-4 py-3 text-left text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors duration-200 rounded-md"
                     >
                         <LogoutIcon />
                         <span className="ml-4 font-medium">Logout</span>
@@ -137,13 +141,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user, onLogout }) => {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="h-20 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 flex items-center justify-end px-8">
+                <header className="h-20 bg-white/80 backdrop-blur-sm border-b border-gray-200 flex items-center justify-end px-8">
                     <div className="text-right">
-                        <p className="font-semibold text-white">{user.name}</p>
-                        <p className="text-xs text-cyan-400">{user.role}</p>
+                        <p className="font-semibold text-gray-900">{user.name}</p>
+                        <p className="text-xs text-indigo-600">{user.role}</p>
                     </div>
                 </header>
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
                     {renderView()}
                 </main>
             </div>

@@ -1,3 +1,4 @@
+
 import React, { useCallback, useRef } from 'react';
 import { Role } from '../types';
 
@@ -13,7 +14,7 @@ interface FileUploadProps {
 }
 
 const UploadIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h10a4 4 0 014 4v5a4 4 0 01-4 4h-2m-6-4l4-4m0 0l4 4m-4-4v12" />
   </svg>
 );
@@ -29,10 +30,10 @@ const AIToggle: React.FC<{ isEnabled: boolean; onChange: (enabled: boolean) => v
                     checked={isEnabled}
                     onChange={(e) => onChange(e.target.checked)}
                 />
-                <div className="block bg-gray-600 w-14 h-8 rounded-full"></div>
-                <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isEnabled ? 'translate-x-6 bg-cyan-400' : ''}`}></div>
+                <div className="block bg-gray-200 w-14 h-8 rounded-full"></div>
+                <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isEnabled ? 'translate-x-6 bg-indigo-600' : ''}`}></div>
             </div>
-            <div className="ml-3 text-gray-300 font-medium">
+            <div className="ml-3 text-gray-700 font-medium">
                 Enable AI Analysis <span className="text-xs text-gray-500">(slower, smarter)</span>
             </div>
         </label>
@@ -47,8 +48,8 @@ const RoleSelector: React.FC<{
   const roles: Role[] = ['Executive', 'Administrator', 'Developer'];
   return (
       <div className={`mt-4 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-           <div className="text-gray-300 font-medium mb-2 text-center">Select AI Persona</div>
-          <div className="flex bg-gray-700 rounded-lg p-1">
+           <div className="text-gray-700 font-medium mb-2 text-center">Select AI Persona</div>
+          <div className="flex bg-gray-200 rounded-lg p-1">
               {roles.map((role) => (
                   <button
                       key={role}
@@ -56,8 +57,8 @@ const RoleSelector: React.FC<{
                       disabled={isDisabled}
                       className={`w-full text-center px-2 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none ${
                           selectedRole === role
-                              ? 'bg-cyan-600 text-white shadow'
-                              : 'text-gray-300 hover:bg-gray-600'
+                              ? 'bg-indigo-600 text-white shadow'
+                              : 'text-gray-600 hover:bg-gray-300'
                       }`}
                   >
                       {role}
@@ -82,14 +83,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze
   };
   
   return (
-    <div className="bg-gray-800 p-6 rounded-lg shadow-lg h-full flex flex-col">
-      <h2 className="text-xl font-semibold mb-4 text-cyan-400">1. Configure Analysis</h2>
+    <div className="bg-white p-6 rounded-lg shadow-lg h-full flex flex-col border border-gray-200">
+      <h2 className="text-xl font-semibold mb-4 text-indigo-600">1. Configure Analysis</h2>
       <div 
-        className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-cyan-500 transition-colors"
+        className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 transition-colors"
         onClick={handleButtonClick}
       >
         <UploadIcon />
-        <p className="mt-2 text-gray-400">Click to browse or drag files here</p>
+        <p className="mt-2 text-gray-500">Click to browse or drag files here</p>
         <input
           type="file"
           multiple
@@ -99,7 +100,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze
           accept=".txt,.log,.json,.hprof,.phd"
         />
         {fileCount > 0 && (
-          <p className="mt-4 text-sm text-green-400">{fileCount} file(s) selected.</p>
+          <p className="mt-4 text-sm text-green-600">{fileCount} file(s) selected.</p>
         )}
       </div>
       <AIToggle isEnabled={isAIEnabled} onChange={onIsAIEnabledChange} />
@@ -107,7 +108,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFilesChange, onAnalyze
       <button
         onClick={onAnalyze}
         disabled={isLoading || fileCount === 0}
-        className="mt-6 w-full bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-cyan-500/50"
+        className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-indigo-500/50"
       >
         {isLoading ? (
           <>

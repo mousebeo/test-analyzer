@@ -213,6 +213,62 @@ export async function getRAGCompletion(question: string, context: string): Promi
     }
 }
 
+export async function rechunkTextWithAI(fullText: string): Promise<string[]> {
+    const prompt = `
+        As an expert in data processing for Retrieval-Augmented Generation (RAG), your task is to re-chunk the following text.
+        The goal is to create semantically coherent, self-contained chunks that are optimal for a vector database.
+        
+        **Instructions:**
+        1.  Review the entire text provided below.
+        2.  Identify logical breakpoints, such as different topics, sections, or application processes.
+        3.  Merge small, fragmented sentences or lines into larger, meaningful paragraphs.
+        4.  Split very large paragraphs that cover multiple distinct topics into smaller, focused chunks.
+        5.  Each chunk should ideally be a self-contained unit of information.
+        6.  Ensure no important information is lost.
+        7.  Return the result as a JSON array of strings, where each string is a new, optimized chunk.
+
+        **TEXT TO RE-CHUNK:**
+        ---
+        ${fullText}
+        ---
+
+        Your response must be a single, valid JSON object containing an array of strings, adhering to the provided schema. Do not add any text or markdown before or after the JSON object.
+    `;
+    
+    const rechunkSchema = {
+        type: Type.OBJECT,
+        properties: {
+            chunks: {
+                type: Type.ARRAY,
+                description: "An array of text chunks, where each chunk is a string.",
+                items: { type: Type.STRING }
+            }
+        }
+    };
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: rechunkSchema,
+            },
+        });
+
+        const jsonText = response.text.trim();
+        const parsedJson = JSON.parse(jsonText);
+        if (parsedJson.chunks && Array.isArray(parsedJson.chunks)) {
+            return parsedJson.chunks;
+        }
+        throw new Error("AI response did not contain a valid 'chunks' array.");
+
+    } catch (error) {
+        console.error("Gemini AI Re-chunking call failed:", error);
+        throw new Error("Failed to re-chunk text with the AI. Check the console for details.");
+    }
+}
+
 
 let assistantChat: Chat | null = null;
 export function getAssistantChat(): Chat {

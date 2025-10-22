@@ -1,3 +1,4 @@
+
 export type Role = 'Executive' | 'Administrator' | 'Developer';
 
 export type ReportType = 'TIBCO HTML' | 'Generic Log';
@@ -195,11 +196,43 @@ export interface KubeConnection {
 
 // --- RAG (Retrieval-Augmented Generation) Types ---
 
+// --- Vector DB Configuration ---
+export type VectorDBType = 'Pinecone' | 'Qdrant' | 'Weaviate' | 'ChromaDB';
+
+export interface PineconeConfig { apiKey: string; host: string; }
+export interface QdrantConfig { apiKey: string; host: string; }
+export interface WeaviateConfig { apiKey: string; host: string; }
+export interface ChromaDBConfig { host: string; }
+
+export type VectorDBConfig = 
+  | { type: 'Pinecone'; config: PineconeConfig }
+  | { type: 'Qdrant'; config: QdrantConfig }
+  | { type: 'Weaviate'; config: WeaviateConfig }
+  | { type: 'ChromaDB'; config: ChromaDBConfig };
+
+// --- Embedding Provider Configuration ---
+export type EmbeddingProviderType = 'Ollama' | 'GoogleAI';
+
+export interface OllamaEmbeddingConfig { host: string; model: string; }
+export interface GoogleAIEmbeddingConfig { apiKey: string; model: string; }
+
+export type EmbeddingConfig = 
+  | { type: 'Ollama'; config: OllamaEmbeddingConfig }
+  | { type: 'GoogleAI'; config: GoogleAIEmbeddingConfig };
+
+// --- API Endpoint Configuration ---
+export interface APIEndpoints {
+    ollamaEmbed: string;
+    googleAIEmbed: string;
+    pineconeUpsert: string;
+    pineconeQuery: string;
+}
+
+// --- Main RAG Configuration ---
 export interface RAGConfig {
-  pineconeApiKey: string;
-  pineconeHost: string;
-  ollamaHost: string;
-  ollamaModel: string;
+  vectorDB: VectorDBConfig;
+  embedding: EmbeddingConfig;
+  apiEndpoints: APIEndpoints;
 }
 
 export interface IndexedDocument {

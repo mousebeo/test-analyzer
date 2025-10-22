@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AnalysisResult } from '../types';
 import { SystemInfoTab } from './tabs/SystemInfoTab';
@@ -35,8 +36,8 @@ export const DetailTabs: React.FC<DetailTabsProps> = ({ result }) => {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg shadow-lg">
-      <div className="border-b border-gray-700">
+    <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+      <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-1 sm:space-x-4 px-4 overflow-x-auto" aria-label="Tabs">
           {tabs.map(tab => (
             <button
@@ -44,8 +45,8 @@ export const DetailTabs: React.FC<DetailTabsProps> = ({ result }) => {
               onClick={() => setActiveTab(tab)}
               className={`${
                 activeTab === tab
-                  ? 'border-cyan-400 text-cyan-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               } whitespace-nowrap py-4 px-1 sm:px-2 border-b-2 font-medium text-sm transition-colors`}
             >
               {tab}
