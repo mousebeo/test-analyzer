@@ -195,6 +195,13 @@ export const ConfigurationView: React.FC<ConfigurationViewProps> = ({ config, on
                     </p>
                     <div className="space-y-6">
                         <APIEndpointField 
+                            label="Document Processing Service"
+                            description="The backend endpoint that receives an uploaded document for chunking, embedding, and upserting."
+                            name="processDocument"
+                            value={localConfig.apiEndpoints.processDocument}
+                            onChange={handleApiEndpointChange}
+                        />
+                        <APIEndpointField 
                             label="Ollama - Embeddings"
                             description="The endpoint used to generate text embeddings from your local Ollama instance."
                             name="ollamaEmbed"

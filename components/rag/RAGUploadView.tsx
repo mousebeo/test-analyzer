@@ -32,32 +32,8 @@ const StatusIcon: React.FC<{ status: IndexedDocument['status'] }> = ({ status })
     );
 };
 
-const checkIsConfigured = (config: RAGConfig): boolean => {
-    const { vectorDB, embedding } = config;
-    let dbConfigured = false;
-    switch (vectorDB.type) {
-        case 'Pinecone':
-        case 'Qdrant':
-        case 'Weaviate':
-            dbConfigured = !!(vectorDB.config.apiKey && vectorDB.config.host);
-            break;
-        case 'ChromaDB':
-            dbConfigured = !!vectorDB.config.host;
-            break;
-        default:
-            dbConfigured = false;
-    }
-
-    let embeddingConfigured = false;
-    switch (embedding.type) {
-        case 'Ollama':
-            embeddingConfigured = !!(embedding.config.host && embedding.config.model);
-            break;
-        case 'GoogleAI':
-            embeddingConfigured = !!(embedding.config.apiKey && embedding.config.model);
-            break;
-    }
-    return dbConfigured && embeddingConfigured;
+const checkUploadIsConfigured = (config: RAGConfig): boolean => {
+    return !!config.apiEndpoints.processDocument;
 };
 
 
@@ -67,7 +43,7 @@ export const RAGUploadView: React.FC<RAGUploadViewProps> = ({ documents, onUploa
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const isConfigured = checkIsConfigured(config);
+  const isConfigured = checkUploadIsConfigured(config);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -115,7 +91,7 @@ export const RAGUploadView: React.FC<RAGUploadViewProps> = ({ documents, onUploa
         )}
         {!isConfigured && (
             <p className="text-center text-xs text-yellow-600">
-                Please set the API endpoints and keys in the 'Configuration' tab for your selected providers.
+                Please set the Document Processing Service URL in the 'Configuration' tab to enable uploads.
             </p>
         )}
       </div>

@@ -29,6 +29,7 @@ const defaultAPIEndpoints: APIEndpoints = {
     googleAIEmbed: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:batchEmbedContents?key={apiKey}',
     pineconeUpsert: '{host}/vectors/upsert',
     pineconeQuery: '{host}/query',
+    processDocument: '',
 };
 
 // --- Configuration Management ---
@@ -289,58 +290,33 @@ export async function uploadDocument(
   let finalStatus: 'ready' | 'error' = 'ready';
 
   try {
-    const fileContent = await fileToText(file);
-    let chunks: string[];
-
-    if (file.type === 'application/vnd.system-analyzer.pre-chunked') {
-        try {
-            chunks = JSON.parse(fileContent);
-            if (!Array.isArray(chunks) || !chunks.every(c => typeof c === 'string')) {
-                throw new Error('Invalid pre-chunked file format.');
-            }
-        } catch (e) {
-            throw new Error('Failed to parse pre-chunked file. Expected a JSON array of strings.');
-        }
-    } else {
-        chunks = chunkText(fileContent, { chunkSize: 750, chunkOverlap: 75 });
+    const processUrl = config.apiEndpoints.processDocument;
+    if (!processUrl) {
+      throw new Error("The document processing service URL is not configured. Please set it in the Configuration tab.");
     }
-    
-    const contextualChunks = chunks.map(chunk => {
-        if(metadataContext.machineName) {
-            return `[Machine: ${metadataContext.machineName} Date: ${new Date().toISOString()}] ---\n\n${chunk}`;
-        }
-        return chunk;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    if (metadataContext.machineName) {
+        formData.append('contextName', metadataContext.machineName);
+    }
+    // Pass necessary configs to the backend service
+    formData.append('vectorDBConfig', JSON.stringify(config.vectorDB));
+    formData.append('embeddingConfig', JSON.stringify(config.embedding));
+    formData.append('apiEndpoints', JSON.stringify(config.apiEndpoints));
+
+    const response = await fetch(processUrl, {
+        method: 'POST',
+        body: formData,
+        // In a real app, you might add authentication headers here
     });
 
-    // Batch processing for improved performance
-    const batchSize = 10;
-    for (let i = 0; i < contextualChunks.length; i += batchSize) {
-        const batchChunks = contextualChunks.slice(i, i + batchSize).filter(c => c && c.trim() !== '');
-        if (batchChunks.length === 0) continue;
-
-        try {
-            const embeddings = await embedTexts(batchChunks, config);
-            if (!embeddings || embeddings.length !== batchChunks.length) {
-                throw new Error(`Embedding service returned an incorrect number of embeddings for a batch.`);
-            }
-
-            const vectors: PineconeVector[] = batchChunks.map((chunk, index) => {
-                 if (!embeddings[index] || embeddings[index].length === 0) {
-                     throw new Error(`Embedding service returned an empty embedding for chunk: ${chunk.substring(0, 100)}...`);
-                }
-                return {
-                    id: `${file.name}_${Date.now()}_${i + index}`,
-                    values: embeddings[index],
-                    metadata: { text: chunk },
-                }
-            });
-
-            await upsertVectors(vectors, config);
-        } catch (error) {
-            console.error("Error processing a batch of chunks:", batchChunks, error);
-            throw error; // Propagate the error up
-        }
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Document processing service failed (${response.status}): ${errorText}`);
     }
+
+    console.log(`Document ${file.name} successfully submitted to processing service.`);
 
   } catch (error) {
     console.error(`Failed to process document ${file.name}:`, error);

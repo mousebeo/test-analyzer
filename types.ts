@@ -226,6 +226,7 @@ export interface APIEndpoints {
     googleAIEmbed: string;
     pineconeUpsert: string;
     pineconeQuery: string;
+    processDocument: string;
 }
 
 // --- Main RAG Configuration ---
