@@ -1,4 +1,5 @@
-import { RAGConfig, IndexedDocument, PineconeVector, PineconeQueryResult, VectorDBConfig, EmbeddingConfig, APIEndpoints } from '../types';
+
+import { RAGConfig, IndexedDocument, VectorPayload, VectorQueryResult, VectorDBConfig, EmbeddingConfig, APIEndpoints } from '../types';
 import { chunkText } from './textUtils';
 import * as geminiService from './geminiService';
 
@@ -29,6 +30,8 @@ const defaultAPIEndpoints: APIEndpoints = {
     googleAIEmbed: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:batchEmbedContents?key={apiKey}',
     pineconeUpsert: '{host}/vectors/upsert',
     pineconeQuery: '{host}/query',
+    weaviateUpsert: '{host}/v1/batch/objects',
+    weaviateQuery: '{host}/v1/graphql',
     processDocument: '',
 };
 
@@ -169,7 +172,7 @@ async function embedWithGoogleAI(texts: string[], config: RAGConfig): Promise<nu
 
 // --- Vector DB Implementations ---
 
-async function upsertToPinecone(vectors: PineconeVector[], config: RAGConfig): Promise<void> {
+async function upsertToPinecone(vectors: VectorPayload[], config: RAGConfig): Promise<void> {
     const { apiKey } = config.vectorDB.config as { apiKey: string };
     const apiUrl = resolveUrl(config.apiEndpoints.pineconeUpsert, config, 'vectorDB');
     const response = await fetch(apiUrl, {
@@ -183,7 +186,7 @@ async function upsertToPinecone(vectors: PineconeVector[], config: RAGConfig): P
     }
 }
 
-async function queryPinecone(vector: number[], topK: number, config: RAGConfig): Promise<PineconeQueryResult[]> {
+async function queryPinecone(vector: number[], topK: number, config: RAGConfig): Promise<VectorQueryResult[]> {
     const { apiKey } = config.vectorDB.config as { apiKey: string };
     const apiUrl = resolveUrl(config.apiEndpoints.pineconeQuery, config, 'vectorDB');
     const response = await fetch(apiUrl, {
@@ -197,6 +200,102 @@ async function queryPinecone(vector: number[], topK: number, config: RAGConfig):
     }
     const data = await response.json();
     return data.matches || [];
+}
+
+async function upsertToWeaviate(vectors: VectorPayload[], config: RAGConfig): Promise<void> {
+    const { apiKey } = config.vectorDB.config as { apiKey: string };
+    const apiUrl = resolveUrl(config.apiEndpoints.weaviateUpsert, config, 'vectorDB');
+
+    const weaviateObjects = vectors.map(v => ({
+        class: 'Document', // A default class name
+        id: v.id,
+        properties: {
+            text: v.metadata.text,
+        },
+        vector: v.values,
+    }));
+
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ objects: weaviateObjects }),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Weaviate API error during upsert (${response.status}): ${errorText}`);
+    }
+    const responseData = await response.json();
+    if (responseData.results) {
+        const errors = responseData.results.filter((r: any) => r.result?.status === 'FAILED');
+        if (errors.length > 0) {
+            throw new Error(`Weaviate failed to upsert ${errors.length} vectors. First error: ${JSON.stringify(errors[0].result.errors)}`);
+        }
+    }
+}
+
+async function queryWeaviate(vector: number[], topK: number, config: RAGConfig): Promise<VectorQueryResult[]> {
+    const { apiKey } = config.vectorDB.config as { apiKey: string };
+    const apiUrl = resolveUrl(config.apiEndpoints.weaviateQuery, config, 'vectorDB');
+
+    const query = {
+        query: `
+            {
+              Get {
+                Document(
+                  nearVector: {
+                    vector: [${vector.join(',')}]
+                  }
+                  limit: ${topK}
+                ) {
+                  text
+                  _additional {
+                    id
+                    certainty
+                    vector
+                  }
+                }
+              }
+            }
+        `
+    };
+
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(query),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Weaviate query error (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    if (data.errors) {
+        throw new Error(`Weaviate GraphQL error: ${JSON.stringify(data.errors)}`);
+    }
+    
+    const results = data.data?.Get?.Document || [];
+
+    return results.map((res: any) => ({
+        id: res._additional.id,
+        score: res._additional.certainty,
+        values: res._additional.vector,
+        metadata: {
+            text: res.text,
+        },
+    }));
 }
 
 // --- Dispatcher Functions ---
@@ -223,7 +322,7 @@ async function embedTexts(texts: string[], config: RAGConfig): Promise<number[][
     }
 }
 
-async function upsertVectors(vectors: PineconeVector[], config: RAGConfig): Promise<void> {
+async function upsertVectors(vectors: VectorPayload[], config: RAGConfig): Promise<void> {
     if (vectors.some(v => !v.values || v.values.length === 0)) {
         const problematicChunkIndex = vectors.findIndex(v => !v.values || v.values.length === 0);
         const problematicChunkText = vectors[problematicChunkIndex]?.metadata?.text.substring(0, 200) + '...';
@@ -233,6 +332,8 @@ async function upsertVectors(vectors: PineconeVector[], config: RAGConfig): Prom
         switch (config.vectorDB.type) {
             case 'Pinecone':
                 return await upsertToPinecone(vectors, config);
+            case 'Weaviate':
+                return await upsertToWeaviate(vectors, config);
             // Add other DB implementations here
             default:
                 throw new Error(`Vector DB type "${config.vectorDB.type}" is not yet implemented.`);
@@ -246,11 +347,13 @@ async function upsertVectors(vectors: PineconeVector[], config: RAGConfig): Prom
     }
 }
 
-async function queryVectors(vector: number[], topK: number, config: RAGConfig): Promise<PineconeQueryResult[]> {
+async function queryVectors(vector: number[], topK: number, config: RAGConfig): Promise<VectorQueryResult[]> {
      try {
         switch (config.vectorDB.type) {
             case 'Pinecone':
                 return await queryPinecone(vector, topK, config);
+            case 'Weaviate':
+                return await queryWeaviate(vector, topK, config);
             // Add other DB implementations here
             default:
                 throw new Error(`Vector DB type "${config.vectorDB.type}" is not yet implemented.`);

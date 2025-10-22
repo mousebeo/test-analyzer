@@ -226,6 +226,8 @@ export interface APIEndpoints {
     googleAIEmbed: string;
     pineconeUpsert: string;
     pineconeQuery: string;
+    weaviateUpsert: string;
+    weaviateQuery: string;
     processDocument: string;
 }
 
@@ -243,7 +245,7 @@ export interface IndexedDocument {
   uploadedAt: number;
 }
 
-export interface PineconeVector {
+export interface VectorPayload {
     id: string;
     values: number[];
     metadata: {
@@ -251,7 +253,7 @@ export interface PineconeVector {
     };
 }
 
-export interface PineconeQueryResult {
+export interface VectorQueryResult {
     id: string;
     score: number;
     values: number[];

@@ -117,11 +117,17 @@ export const ConfigurationView: React.FC<ConfigurationViewProps> = ({ config, on
     switch(type) {
         case 'Pinecone':
         case 'Qdrant':
-        case 'Weaviate':
             return (
                 <div className="space-y-4">
                      <InputField label="Host URL" name="host" value={(config as any).host} onChange={(e) => handleConfigChange('vectorDB', e)} placeholder={`e.g., https://my-index-12345.svc.host.${type.toLowerCase()}.io`} />
                      <InputField label="API Key" name="apiKey" value={(config as any).apiKey} onChange={(e) => handleConfigChange('vectorDB', e)} placeholder={`Enter your ${type} API key`} isPassword={true} />
+                </div>
+            );
+        case 'Weaviate':
+             return (
+                <div className="space-y-4">
+                     <InputField label="Host URL" name="host" value={(config as any).host} onChange={(e) => handleConfigChange('vectorDB', e)} placeholder="e.g., my-cluster.weaviate.network or localhost:8080" />
+                     <InputField label="API Key (for Weaviate Cloud)" name="apiKey" value={(config as any).apiKey} onChange={(e) => handleConfigChange('vectorDB', e)} placeholder="Optional for local instances" isPassword={true} />
                 </div>
             );
         case 'ChromaDB':
@@ -227,6 +233,20 @@ export const ConfigurationView: React.FC<ConfigurationViewProps> = ({ config, on
                             description="The endpoint used to query your Pinecone index to find relevant document chunks."
                             name="pineconeQuery"
                             value={localConfig.apiEndpoints.pineconeQuery}
+                            onChange={handleApiEndpointChange}
+                        />
+                         <APIEndpointField 
+                            label="Weaviate - Batch Upsert"
+                            description="The endpoint for batch importing objects (vectors) into your Weaviate instance."
+                            name="weaviateUpsert"
+                            value={localConfig.apiEndpoints.weaviateUpsert}
+                            onChange={handleApiEndpointChange}
+                        />
+                         <APIEndpointField 
+                            label="Weaviate - GraphQL Query"
+                            description="The GraphQL endpoint used to query your Weaviate instance for vector search."
+                            name="weaviateQuery"
+                            value={localConfig.apiEndpoints.weaviateQuery}
                             onChange={handleApiEndpointChange}
                         />
                     </div>
