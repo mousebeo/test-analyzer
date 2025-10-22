@@ -14,35 +14,8 @@ interface RAGChatViewProps {
 }
 
 const checkIsConfigured = (config: RAGConfig): boolean => {
-    const { vectorDB, embedding } = config;
-    let dbConfigured = false;
-    switch (vectorDB.type) {
-        case 'Pinecone':
-        case 'Qdrant':
-            dbConfigured = !!(vectorDB.config.apiKey && vectorDB.config.host);
-            break;
-        case 'Weaviate':
-            // Weaviate only requires host; API key is optional for local/unauthenticated instances
-            dbConfigured = !!vectorDB.config.host;
-            break;
-        case 'ChromaDB':
-            dbConfigured = !!vectorDB.config.host;
-            break;
-        default:
-             // A non-implemented DB type is considered not configured
-            dbConfigured = false;
-    }
-
-    let embeddingConfigured = false;
-    switch (embedding.type) {
-        case 'Ollama':
-            embeddingConfigured = !!(embedding.config.host && embedding.config.model);
-            break;
-        case 'GoogleAI':
-            embeddingConfigured = !!(embedding.config.apiKey && embedding.config.model);
-            break;
-    }
-    return dbConfigured && embeddingConfigured;
+    // Chat is configured if either the new dedicated API or the old RAG service URL is set.
+    return !!config.apiEndpoints.docIntelligenceChatApi || !!config.apiEndpoints.ragQuery;
 };
 
 
@@ -88,7 +61,7 @@ export const RAGChatView: React.FC<RAGChatViewProps> = ({ config }) => {
           <div className="text-center bg-yellow-50 border border-yellow-300 p-6 rounded-lg">
               <h3 className="text-xl font-semibold text-yellow-800">Configuration Needed</h3>
               <p className="text-yellow-700 mt-2">
-                  Please set your API endpoints and keys in the 'Configuration' tab for your selected providers before using the chat.
+                  Please set either the 'Document Intelligence Chat API' or the 'RAG Query Service URL' in the 'Configuration' tab to enable chat.
               </p>
           </div>
       );

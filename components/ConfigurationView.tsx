@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { RAGConfig, VectorDBType, EmbeddingProviderType } from '../types';
 import * as ragService from '../services/ragService';
@@ -200,11 +199,25 @@ export const ConfigurationView: React.FC<ConfigurationViewProps> = ({ config, on
                         Advanced: Override the full URL for specific API calls. The default values should work for standard setups.
                     </p>
                     <div className="space-y-6">
+                        <APIEndpointField
+                            label="Document Intelligence Chat API"
+                            description="The backend endpoint that receives a user question ({question: '...'}) and returns a text response. This is prioritized over the RAG Query Service if set."
+                            name="docIntelligenceChatApi"
+                            value={localConfig.apiEndpoints.docIntelligenceChatApi}
+                            onChange={handleApiEndpointChange}
+                        />
                         <APIEndpointField 
                             label="Document Processing Service"
                             description="The backend endpoint that receives an uploaded document for chunking, embedding, and upserting."
                             name="processDocument"
                             value={localConfig.apiEndpoints.processDocument}
+                            onChange={handleApiEndpointChange}
+                        />
+                        <APIEndpointField 
+                            label="RAG Query Service"
+                            description="The backend endpoint that receives a user question and performs the full RAG pipeline (embedding, vector search, synthesis)."
+                            name="ragQuery"
+                            value={localConfig.apiEndpoints.ragQuery}
                             onChange={handleApiEndpointChange}
                         />
                         <APIEndpointField 

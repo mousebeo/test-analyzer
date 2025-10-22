@@ -229,6 +229,8 @@ export interface APIEndpoints {
     weaviateUpsert: string;
     weaviateQuery: string;
     processDocument: string;
+    ragQuery: string;
+    docIntelligenceChatApi: string;
 }
 
 // --- Main RAG Configuration ---
